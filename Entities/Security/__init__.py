@@ -39,6 +39,20 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     return encoded_jwt
 
 
+async def extract_token(token):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        phone: int = payload.get("phone")
+        id: str = payload.get("id")
+        device_id: str = payload.get("device_id")
+        token_data = {'phone': phone, 'id': id , 'device_id': device_id}
+    except JWTError:
+        raise exceptions_object.raise401()
+    except:
+        raise exceptions_object.raise401()
+    return token_data
+
+
 async def get_current_user(authorization: str = Header(...)):
     try:
         payload = jwt.decode(authorization, SECRET_KEY, algorithms=[ALGORITHM])

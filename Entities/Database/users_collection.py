@@ -3,7 +3,7 @@ from datetime import datetime
 from Commons.static_functions import create_random_user_id
 
 
-def create_user_json(name, phone, device_id) -> dict:
+def create_user_json(phone, name="", device_id="") -> dict:
     random_id = create_random_user_id()
     return {'_id': random_id, 'phone': phone, 'username': name, "score": 0, "xp": 0, "coin": 0, "image": 0, "token": 0,
             "open_game_id": "", "device_id": device_id, "last_time_played": datetime(2000, 1, 1),
@@ -20,16 +20,16 @@ class UsersCollectionManager:
         if phone_number[0] != "9":
             return False
         query = {'phone': phone_number}
-        return self.collection.find_one(query) is None
+        return self.collection.find_one(query)
 
-    def create_user(self, phone, name, device_id="0"):
-        if self.is_phone_avaialble(phone):
+    def create_user(self, phone, name="", device_id="0"):
+        data = self.is_phone_avaialble(phone)
+        if data is None:
             user_data = create_user_json(phone=phone, name=name, device_id=device_id)
             self.collection.insert_one(user_data)
             return user_data
         else:
-            print("bad number")
-            return None
+            return data
 
     def read_user(self, user_id):
         query = {'_id': user_id}
