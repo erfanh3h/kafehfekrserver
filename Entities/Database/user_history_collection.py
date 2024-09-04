@@ -2,7 +2,7 @@ from Entities.Games.game_types import GameTypesEnum
 
 
 def create_user_history_json(user_id) -> dict:
-    result = {'_id': user_id, "win": 0, "draw": 0, "lose": 0}
+    result = {'_id': user_id, "win_normal": 0, "draw_normal": 0, "lose_normal": 0}
     return result
 
 

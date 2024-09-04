@@ -9,7 +9,10 @@ def check_not_in_game(user_phone):
 
 def enter_user(user_phone):
     from Entities.Database import game_database
-    return game_database.users_manager.create_user(phone=user_phone)
+    user_data, is_new_user = game_database.users_manager.create_user(phone=user_phone)
+    if is_new_user:
+        game_database.user_history_manager.create_user_history(user_data['_id'])
+    return user_data
 
 
 def complete_user(user_id, username, device_id):

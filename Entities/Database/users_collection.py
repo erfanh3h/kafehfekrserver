@@ -27,9 +27,9 @@ class UsersCollectionManager:
         if data is None:
             user_data = create_user_json(phone=phone, name=name, device_id=device_id)
             self.collection.insert_one(user_data)
-            return user_data
+            return user_data , True
         else:
-            return data
+            return data , False
 
     def read_user(self, user_id):
         query = {'_id': user_id}

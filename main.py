@@ -53,7 +53,7 @@ async def complete_user(authorization: str = Header(...), user=Depends(get_curre
 
 
 @app.get("/my-data")
-async def say_hello(authorization: str = Header(...), user=Depends(get_current_user)):
+async def my_data(authorization: str = Header(...), user=Depends(get_current_user)):
     return {"result": user}
 
 
@@ -72,6 +72,13 @@ async def say_hello(authorization: str = Header(...), user_data=Depends(get_curr
 @app.get("/user-data")
 async def say_hello(userid: str, authorization: str = Header(...), user=Depends(get_current_user)):
     return {"result": userid}
+
+
+@app.post("/update-image")
+async def say_hello(image: int = Form(...), authorization: str = Header(...), user_data=Depends(get_current_user)):
+    from Entities.Api_Services import user
+    user.update_image(user_data['_id'], image)
+    return {"result": True}
 
 
 if __name__ == '__main__':
