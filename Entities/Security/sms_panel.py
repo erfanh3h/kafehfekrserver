@@ -11,7 +11,7 @@ class SMSPanel:
         self.username = username
         self.password = password
 
-    def send_code_to_user(self, user_number, footer=""):
+    def send_code_to_user(self, user_number, footer="کافه فکر"):
         # try:
         client = Client(self.basePath)
         result = client.service.AutoSendCode(self.username, self.password, user_number, footer)

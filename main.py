@@ -17,11 +17,11 @@ async def root():
 @app.post("/enter")
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
-    # sms = SMSPanel("ErfanH3h", "199977")
+    # smsPanel = SMSPanel("ErfanH3h", "199977")
     # print(sms.send_code_to_user(user_number="09377804649"))
     from Entities.Api_Services import auth
     if auth.check_not_in_game(phone):
-        # background_tasks.add_task(smsPanel.AutoSendCode, phone, "")
+        # background_tasks.add_task(smsPanel.send_code_to_user, phone, "")
         return {"result": True}
     else:
         raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
@@ -52,9 +52,26 @@ async def complete_user(authorization: str = Header(...), user=Depends(get_curre
     return {"message": "Hello World"}
 
 
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
+@app.get("/my-data")
+async def say_hello(authorization: str = Header(...), user=Depends(get_current_user)):
+    return {"result": user}
+
+
+@app.get("/my-history")
+async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
+    from Entities.Api_Services import user
+    return {"result": user.user_histories(user_data['_id'])}
+
+
+@app.get("/my-game-history")
+async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
+    from Entities.Api_Services import user
+    return {"result": user.user_game_histories(user_data['_id'])}
+
+
+@app.get("/user-data")
+async def say_hello(userid: str, authorization: str = Header(...), user=Depends(get_current_user)):
+    return {"result": userid}
 
 
 if __name__ == '__main__':
