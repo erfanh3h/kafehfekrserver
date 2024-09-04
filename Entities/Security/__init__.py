@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from Entities.Network_Exeptions import HttpExceptions
+from Entities import Network_Exeptions
 
 SECRET_KEY = "09da5e74afaa9ma2565c818195b7b9563b93xc059f6f0f4cab6cf63b88e8d3e7"
 ALGORITHM = "HS256"
@@ -20,8 +20,6 @@ class Token(BaseModel):
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-exceptions_object = HttpExceptions()
-
 
 def get_device_id_hash(device_id):
     return uuid.uuid5(uuid.NAMESPACE_X500, device_id)

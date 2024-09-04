@@ -1,6 +1,7 @@
 from fastapi import FastAPI, BackgroundTasks, Form, Header, Depends
 import uvicorn
 from Entities.Api_Services import get_current_user
+from Entities import Network_Exeptions
 
 app = FastAPI()
 
@@ -18,14 +19,16 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
     # sms = SMSPanel("ErfanH3h", "199977")
     # print(sms.send_code_to_user(user_number="09377804649"))
-    # from Entities.Api_Services import auth
-    # auth.enter_user(phone)
-    # background_tasks.add_task(smsPanel.AutoSendCode, phone, "")
-    return {"message": f"Hello {phone}"}
+    from Entities.Api_Services import auth
+    if auth.check_not_in_game(phone):
+        # background_tasks.add_task(smsPanel.AutoSendCode, phone, "")
+        return {"result": True}
+    else:
+        raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
 
 
 @app.post("/code")
-async def enter_user(phone: str = Form(...), code: str = Form(...)):
+async def enter_code(phone: str = Form(...), code: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
     # sms = SMSPanel("ErfanH3h", "199977")
     # if sms.check_code(user_number=phone, code=code):
@@ -37,7 +40,8 @@ async def enter_user(phone: str = Form(...), code: str = Form(...)):
             data={'phone': phone, 'id': user_data['_id'], 'device_id': user_data['device_id']})
         print(await Security.extract_token(token))
         return {"user_data": user_data, "token": token}
-    return {"message": "Bad code"}
+    else:
+        raise Network_Exeptions.raise422()
 
 
 @app.post("/complete-data")

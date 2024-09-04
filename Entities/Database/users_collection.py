@@ -36,6 +36,11 @@ class UsersCollectionManager:
         user_Data = self.collection.find_one(query)
         return user_Data
 
+    def read_user_by_phone(self, user_phone):
+        query = {'phone': user_phone}
+        user_Data = self.collection.find_one(query)
+        return user_Data
+
     def read_users(self, users):
         query = {'_id': {"$in": users}}
         user_Data = self.collection.find(query)
