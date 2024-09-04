@@ -1,5 +1,6 @@
-from fastapi import FastAPI, BackgroundTasks, Form
+from fastapi import FastAPI, BackgroundTasks, Form, Header, Depends
 import uvicorn
+from Entities.Api_Services import get_current_user
 
 app = FastAPI()
 
@@ -35,14 +36,15 @@ async def enter_user(phone: str = Form(...), code: str = Form(...)):
         token = Security.create_access_token(
             data={'phone': phone, 'id': user_data['_id'], 'device_id': user_data['device_id']})
         print(await Security.extract_token(token))
-        return {"user_data": user_data, "token": token }
+        return {"user_data": user_data, "token": token}
     return {"message": "Bad code"}
 
 
 @app.post("/complete-data")
-async def complete_user(user_id: str = Form(...), username: str = Form(...), device_id: str = Form(...), ):
+async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...),
+                        device_id: str = Form(...), ):
     from Entities.Api_Services import auth
-    auth.complete_user(user_id, username, device_id)
+    auth.complete_user(user['_id'], username, device_id)
     return {"message": "Hello World"}
 
 

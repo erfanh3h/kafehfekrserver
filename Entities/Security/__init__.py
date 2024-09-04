@@ -1,8 +1,7 @@
 from typing import Optional
 import uuid, datetime
-from fastapi import Header
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jose import jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from Entities.Network_Exeptions import HttpExceptions
@@ -45,39 +44,7 @@ async def extract_token(token):
         phone: int = payload.get("phone")
         id: str = payload.get("id")
         device_id: str = payload.get("device_id")
-        token_data = {'phone': phone, 'id': id , 'device_id': device_id}
-    except JWTError:
-        raise exceptions_object.raise401()
-    except:
-        raise exceptions_object.raise401()
-    return token_data
-
-
-async def get_current_user(authorization: str = Header(...)):
-    try:
-        payload = jwt.decode(authorization, SECRET_KEY, algorithms=[ALGORITHM])
-        phone: int = payload.get("phone")
-        id: str = payload.get("id")
-        token_data = {'phone': phone, 'id': id}
-    except JWTError:
-        raise exceptions_object.raise401()
-    except:
-        raise exceptions_object.raise401()
-    from Entities.Database import game_database
-    user = game_database.users_manager.read_user(id=token_data['id'])
-    if user is None:
-        raise exceptions_object.raise401()
-    return user
-
-
-async def get_current_user_optional(authorization: str = Header(None)):
-    try:
-        payload = jwt.decode(authorization, SECRET_KEY, algorithms=[ALGORITHM])
-        phone: int = payload.get("phone")
-        id: str = payload.get("id")
-        token_data = {'phone': phone, 'id': id}
+        token_data = {'phone': phone, 'id': id, 'device_id': device_id}
+        return token_data
     except:
         return None
-    from Entities.Database import game_database
-    user = game_database.users_manager.read_user(id=token_data['id'])
-    return user
