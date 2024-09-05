@@ -8,8 +8,7 @@ async def get_current_user(authorization: str = Header(...)):
     if user_token_data is not None:
         from Entities.Database import game_database
         user = game_database.users_manager.read_user(user_token_data['id'])
-        print(user['device_id'] , user_token_data['device_id'])
-        if user['device_id'] != user_token_data['device_id']:
+        if user is None or user['device_id'] != user_token_data['device_id']:
             raise Network_Exeptions.raise401()
         else:
             return user

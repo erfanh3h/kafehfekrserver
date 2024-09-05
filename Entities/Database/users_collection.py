@@ -55,11 +55,11 @@ class UsersCollectionManager:
         update_data = {}
         if username is not None:
             update_data['username'] = username
-        if score is not None:
+        if score is not None and score >= 0:
             update_data['score'] = score
-        if xp is not None:
+        if xp is not None and xp >= 0:
             update_data['xp'] = xp
-        if coin is not None:
+        if coin is not None and coin >= 0:
             update_data['coin'] = coin
         if image is not None:
             update_data['image'] = image
