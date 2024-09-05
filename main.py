@@ -41,16 +41,17 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
 
 
 @app.post("/code")
-async def enter_code(phone: str = Form(...), code: str = Form(...)):
+async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
     # sms = SMSPanel("ErfanH3h", "199977")
     # if sms.check_code(user_number=phone, code=code):
     if code == "123456":
         from Entities.Api_Services import auth
         from Entities import Security
-        user_data = auth.enter_user(phone)
+        user_data = auth.enter_user(phone, device_id)
+        print(user_data['device_id'])
         token = Security.create_access_token(
-            data={'phone': phone, 'id': user_data['_id'], 'device_id': user_data['device_id']})
+            data={'phone': phone, 'id': user_data['_id'], 'device_id': device_id})
         print(await Security.extract_token(token))
         return {"user_data": user_data, "token": token}
     else:
@@ -58,11 +59,10 @@ async def enter_code(phone: str = Form(...), code: str = Form(...)):
 
 
 @app.post("/complete-data")
-async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...),
-                        device_id: str = Form(...), ):
+async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...)):
     from Entities.Api_Services import auth
-    auth.complete_user(user['_id'], username, device_id)
-    return {"message": "Hello World"}
+    auth.complete_user(user['_id'], username)
+    return {"result": True}
 
 
 @app.get("/my-data")
