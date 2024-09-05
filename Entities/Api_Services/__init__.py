@@ -11,3 +11,8 @@ async def get_current_user(authorization: str = Header(...)):
         return user
     else:
         raise Network_Exeptions.raise401()
+
+
+def get_config():
+    from Entities.Database import game_database
+    return game_database.config_manager.read_config()

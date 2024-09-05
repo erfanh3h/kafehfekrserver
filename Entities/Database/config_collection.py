@@ -6,8 +6,8 @@ class ConfigCollectionManager:
         self.collection = collection
 
     def create_config(self):
-        data = {'_id': 1, "latest_version": "0.0.1", "allowed_version": "0.0.1"
-            , "is_queue_open": True, "release_data": datetime.now()}
+        data = {'_id': 1, "latest_version": "0.0.1", "allowed_version": "0.0.1", "is_queue_open": True,
+                "update_finish_date": datetime.now()}
         self.collection.insert_one(data)
         return data
 

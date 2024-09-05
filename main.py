@@ -14,6 +14,19 @@ async def root():
     return {"message": "Hello World"}
 
 
+@app.get("/config")
+async def read_config():
+    from Entities import Api_Services
+    return {"result": Api_Services.get_config()}
+
+
+@app.post("/check_match_allow")
+async def check_match_allow(version: str, authorization: str = Header(...), user=Depends(get_current_user)):
+    from Entities import Api_Services
+    config_data = Api_Services.get_config()
+    return {"result": True}
+
+
 @app.post("/enter")
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
