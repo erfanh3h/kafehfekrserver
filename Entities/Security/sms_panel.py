@@ -1,157 +1,58 @@
-from http.client import HTTPSConnection
-from base64 import b64encode
-import json
-from zeep import Client  # py -m pip install zeep
+import threading
+import time
+from datetime import datetime
+
+from ippanel import Client
+from Commons import static_functions
 
 
 class SMSPanel:
-    basePath = "https://raygansms.com/FastSend.asmx?WSDL"
 
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
+    def __init__(self):
+        self.api_key = "Vl5EGLsFoPyekCvlppXSTz1c592WVuElUYHECMvK8m4="
+        self.sms_panel = Client(self.api_key)
+        self.numbers_to_codes = {}
 
-    def send_code_to_user(self, user_number, footer="کافه فکر"):
-        # try:
-        client = Client(self.basePath)
-        result = client.service.AutoSendCode(self.username, self.password, user_number, footer)
-        return result
-        # except:
-        #     pass
+    def start_timer(self):
+        def entrypoint():  # this use to auto delete unused keys
+            while True:
+                remove_list = []
+                try:
+                    for key, value in self.numbers_to_codes.items():
+                        diff = (datetime.now() - value[1]).seconds
+                        print(diff)
+                        if diff >= 5 * 60:
+                            remove_list.append(key)
+                except:
+                    pass
+                for key in remove_list:
+                    try:
+                        del self.numbers_to_codes[key]
+                    except:
+                        pass
+                time.sleep(300)
+
+        t = threading.Thread(target=entrypoint, daemon=True)
+        t.start()
+
+    def send_code_to_user(self, user_number):
+        try:
+            code = static_functions.create_random_code()
+            self.numbers_to_codes[user_number] = (code, datetime.now())
+            self.sms_panel.send_pattern(
+                "w12zv0tnr93m2tq",  # originator
+                "+983000505",  # recipients
+                recipient=user_number,
+                values={"c": code}
+            )
+        except:
+            pass
 
     def check_code(self, user_number, code):
         try:
-            client = Client(self.basePath)
-            result = client.service.CheckSendCode(self.username, self.password, user_number, code)
+            result = self.numbers_to_codes[user_number][0] == code
+            if result:
+                del self.numbers_to_codes[user_number]
             return result
         except:
             return False
-
-    def SendMessageWithCode(self, ReciptionNumber, Code):
-        client = Client(self.basePath)
-        result = client.service.SendMessageWithCode(self.username, self.password, ReciptionNumber, Code)
-        return result
-
-
-class restfulapi:
-    basePath = "smspanel.trez.ir"
-
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-
-    def postData(self, url, data):
-        try:
-            c = HTTPSConnection(self.basePath)
-            usr = self.username
-            psw = self.password
-            stuffInstt = f"{usr}:{psw}"
-            bytestr = bytes(stuffInstt, encoding="ascii")
-            userAndPass = b64encode(bytestr).decode("ascii")
-            headers = {'Authorization': 'Basic %s' % userAndPass, 'Content-type': 'application/json',
-                       'encoding': 'utf-8'}
-            c.request('POST', url, headers=headers, body=data)
-            res = c.getresponse()
-            data = res.read().decode('utf-8')
-            j = json.loads(data)
-            if j['Code'] == 0:
-                return j['Result']
-            else:
-                return j['Message']
-        except:
-            print("خطایی رخ داده است")
-
-    def GetCredit(self):
-        url = "/api/smsAPI/GetCredit"
-        return self.postData(url, "{}")
-
-    def GetPrices(self):
-        url = "/api/smsAPI/GetPrices"
-        return self.postData(url, "{}")
-
-    def SendMessage(self, PhoneNumber, Message, Mobiles, UserGroupID, SendDateInTimeStamp):
-        url = "/api/smsAPI/SendMessage"
-        jsonData = {'PhoneNumber': PhoneNumber, 'Message': Message, 'Mobiles': Mobiles, 'UserGroupID': UserGroupID,
-                    'SendDateInTimeStamp': SendDateInTimeStamp}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def SendCorrespondingMessage(self, PhoneNumber, MessagesToNumbers, UserGroupID):
-        url = "/api/smsAPI/SendCorrespondingMessage"
-        jsonData = {'PhoneNumber': PhoneNumber, 'RecipientsMessage': MessagesToNumbers, 'UserGroupID': UserGroupID}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def SendMessageToPort(self, PhoneNumber, recievePortNumber, sendPortNumber, MessagesToNumbers, UserGroupID):
-        url = "/api/smsAPI/SendMessageToPort"
-        jsonData = {'PhoneNumber': PhoneNumber, 'recievePortNumber': recievePortNumber,
-                    'sendPortNumber': sendPortNumber, 'RecipientsMessage': MessagesToNumbers,
-                    'UserGroupID': UserGroupID}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def GroupMessageStatus(self, GroupMessageId):
-        url = "/api/smsAPI/GroupMessageStatus"
-        jsonData = {'GroupMessageId': GroupMessageId}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def CorrespondingMessageStatus(self, messageId):
-        url = "/api/smsAPI/CorrespondingMessageStatus"
-        jsonData = {'messageId': messageId}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def GetGroupMessageId(self, groupId):
-        url = "/api/smsAPI/GetGroupMessageId"
-        jsonData = {'groupId': groupId}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def ReceiveMessages(self, PhoneNumber, StartDate, EndDate, Page):
-        url = "/api/smsAPI/ReceiveMessages"
-        jsonData = {'PhoneNumber': PhoneNumber, 'StartDate': StartDate, 'EndDate': EndDate, 'Page': Page}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def ShowWhiteList(self, PhoneNumbers):
-        url = "/api/smsAPI/ShowWhiteList"
-        jsonData = {'MobilesList': PhoneNumbers}
-        json_foo = json.dumps(jsonData)
-        resultData = self.postData(url, json_foo)
-        return resultData
-
-    def TranslateMessageStatusCode(self, Code):
-        result = "تعریف نشده"
-        if Code == 1:
-            result = "پیام ارسال شد"
-        elif Code == 2:
-            result = "پیام در صف می باشد "
-        elif Code == 3:
-            result = "پیام فیلتر شده است . "
-        return result
-
-    def TranslateMessageStatus(self, Code):
-        result = "تعریف نشده"
-        if Code == 1:
-            result = "رسیده به گوشی"
-        elif Code == 2:
-            result = "نرسیده به گوشی "
-        elif Code == 8:
-            result = "رسیده به مخابرات"
-        elif Code == 16:
-            result = "نرسیده به مخابرات"
-        elif Code == 27:
-            result = "امکان ارسال پیام به شماره مورد نظر وجود ندارد . "
-        elif Code == 23:
-            result = "به دلیل ترافیک بالا سرور امکان دریافت پیام جدید را ندارد"
-        else:
-            result = "پیام در درست بررسی می باشد"
-        return result

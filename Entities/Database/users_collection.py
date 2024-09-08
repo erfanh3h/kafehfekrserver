@@ -5,7 +5,7 @@ from Commons.static_functions import create_random_user_id
 
 def create_user_json(phone, name="", device_id="") -> dict:
     random_id = create_random_user_id()
-    return {'_id': random_id, 'phone': phone, 'username': name, "score": 0, "xp": 0, "coin": 0, "image": 0, "token": 0,
+    return {'_id': random_id, 'phone': phone, 'username': name, "score": 0, "xp": 0, "coin": 50, "image": 0, "token": 0,
             "open_game_id": "", "device_id": device_id, "last_time_played": datetime(2000, 1, 1),
             "last_time_chance": datetime(2000, 1, 1), "is_active": True, "join_date": datetime.now()}
 

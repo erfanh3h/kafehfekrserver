@@ -21,3 +21,9 @@ def create_random_user_id() -> str:
     char_set = string.ascii_uppercase + string.ascii_lowercase + string.digits
     result = ''.join(random.sample(char_set * 6, 6))
     return result
+
+
+def create_random_code() -> str:
+    char_set = string.digits
+    result = ''.join(random.sample(char_set * 6, 4))
+    return result

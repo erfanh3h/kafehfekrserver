@@ -2,15 +2,16 @@ from fastapi import FastAPI, BackgroundTasks, Form, Header, Depends
 import uvicorn
 from Entities.Api_Services import get_current_user
 from Entities import Network_Exeptions
+from Entities.Security.sms_panel import SMSPanel
 
 app = FastAPI()
+
+sms_panel = SMSPanel()
+sms_panel.start_timer()
 
 
 @app.get("/")
 async def root():
-    from Entities.Security.sms_panel import SMSPanel
-    sms = SMSPanel("ErfanH3h", "199977")
-    print(sms.send_code_to_user(user_number="09377804649"))
     return {"message": "Hello World"}
 
 
@@ -29,12 +30,9 @@ async def check_match_allow(version: str, authorization: str = Header(...), user
 
 @app.post("/enter")
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
-    # from Entities.Security.sms_panel import SMSPanel
-    # smsPanel = SMSPanel("ErfanH3h", "199977")
-    # print(sms.send_code_to_user(user_number="09377804649"))
     from Entities.Api_Services import auth
     if auth.check_not_in_game(phone):
-        # background_tasks.add_task(smsPanel.send_code_to_user, phone, "")
+        background_tasks.add_task(sms_panel.send_code_to_user, phone)
         return {"result": True}
     else:
         raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
@@ -44,8 +42,8 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
 async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: str = Form(...)):
     # from Entities.Security.sms_panel import SMSPanel
     # sms = SMSPanel("ErfanH3h", "199977")
-    # if sms.check_code(user_number=phone, code=code):
-    if code == "123456":
+    if sms_panel.check_code(user_number=phone, code=code):
+        # if code == "1234":
         from Entities.Api_Services import auth
         from Entities import Security
         user_data = auth.enter_user(phone, device_id)

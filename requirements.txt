@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+passlib
+python-jose
+python-multipart
+pymongo
+python-jose
+ippanel
