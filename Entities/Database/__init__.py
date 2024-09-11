@@ -15,6 +15,13 @@ class DataBaseManager:
         self.game_history_manager = GameHistoryCollectionManager(self.base_db['game_history'])
         self.config_manager = ConfigCollectionManager(self.base_db['config'])
 
+    def check_create_collections(self):
+        if not self.db_client.list_database_names().__contains__("KafehFekrDB"):
+            user_data, is_created = self.users_manager.create_user("9377804649", "Erfan")
+            self.user_history_manager.create_user_history(user_data['_id'])
+            self.game_history_manager.create_game_history(0, "1", "2", "TicTacToe", game_score_type="Normal")
+            self.config_manager.create_config()
+
 
 game_database = DataBaseManager()
 # print(game_database.users_manager.read_users(["0","1"]))

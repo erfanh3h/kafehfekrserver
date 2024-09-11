@@ -1,4 +1,9 @@
+import datetime
+
 from fastapi import Header
+
+from Commons.app_consts import admin_token
+from Entities import Network_Exeptions
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -19,3 +24,24 @@ async def get_current_user(authorization: str = Header(...)):
 def get_config():
     from Entities.Database import game_database
     return game_database.config_manager.read_config()
+
+
+def set_config_let_queue(token, value: bool, hour: int, minute: int):
+    if token != admin_token:
+        raise Network_Exeptions.raise401()
+    else:
+        current_date = datetime.datetime.now()
+        from Entities.Database import game_database
+        return game_database.config_manager.update_config(is_queue_open=value,
+                                                          update_finish_date=datetime.datetime(current_date.year,
+                                                                                               current_date.month,
+                                                                                               current_date.day, hour,
+                                                                                               minute))
+
+
+def change_version(token, latest, allowed):
+    if token != admin_token:
+        raise Network_Exeptions.raise401()
+    else:
+        from Entities.Database import game_database
+        return game_database.config_manager.update_config(latest_version=latest, allowed_version=allowed)

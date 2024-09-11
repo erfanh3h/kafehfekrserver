@@ -15,7 +15,7 @@ class ConfigCollectionManager:
         data = self.collection.find_one({})
         return data
 
-    def update_config(self, latest_version=None, allowed_version=None, is_queue_open=None, release_data=None):
+    def update_config(self, latest_version=None, allowed_version=None, is_queue_open=None, update_finish_date=None):
         update_data = {}
         if latest_version is not None:
             update_data['latest_version'] = latest_version
@@ -23,6 +23,6 @@ class ConfigCollectionManager:
             update_data['allowed_version'] = allowed_version
         if is_queue_open is not None:
             update_data['is_queue_open'] = is_queue_open
-        if release_data is not None:
-            update_data['release_data'] = release_data
+        if update_finish_date is not None:
+            update_data['update_finish_date'] = update_finish_date
         self.collection.find_one_and_update({}, {'$set': update_data})

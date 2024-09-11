@@ -1,13 +1,19 @@
+import pymongo
 from fastapi import FastAPI, BackgroundTasks, Form, Header, Depends
 import uvicorn
 from Entities.Api_Services import get_current_user
 from Entities import Network_Exeptions
 from Entities.Security.sms_panel import SMSPanel
+from Routers import admin_router
+from Entities.Database import game_database
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None)
 
+app.include_router(admin_router.router)
 sms_panel = SMSPanel()
 sms_panel.start_timer()
+
+game_database.check_create_collections()
 
 
 @app.get("/")

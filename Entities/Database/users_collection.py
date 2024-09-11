@@ -27,9 +27,9 @@ class UsersCollectionManager:
         if data is None:
             user_data = create_user_json(phone=phone, name=name, device_id=device_id)
             self.collection.insert_one(user_data)
-            return user_data , True
+            return user_data, True
         else:
-            return data , False
+            return data, False
 
     def read_user(self, user_id):
         query = {'_id': user_id}
@@ -80,3 +80,8 @@ class UsersCollectionManager:
     def delete_user(self, user_id):
         query = {'_id': user_id}
         self.collection.delete_one(query)
+
+    def reset_all_users_active_games(self):
+        query = {}
+        update_data = {'open_game_id': ""}
+        self.collection.find_one_and_update(query, {'$set': update_data})
