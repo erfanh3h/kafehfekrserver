@@ -56,13 +56,13 @@ class UsersCollectionManager:
         if username is not None:
             update_data['username'] = username
         if score is not None and score >= 0:
-            update_data['score'] = score
+            update_data['score'] = int(score)
         if xp is not None and xp >= 0:
-            update_data['xp'] = xp
+            update_data['xp'] = int(xp)
         if coin is not None and coin >= 0:
-            update_data['coin'] = coin
+            update_data['coin'] = int(coin)
         if image is not None:
-            update_data['image'] = image
+            update_data['image'] = int(image)
         if token is not None:
             update_data['token'] = token
         if open_game_id is not None:

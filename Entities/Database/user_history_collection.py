@@ -2,7 +2,8 @@ from Entities.Games.game_types import GameTypesEnum
 
 
 def create_user_history_json(user_id) -> dict:
-    result = {'_id': user_id, "win_normal": 0, "draw_normal": 0, "lose_normal": 0}
+    result = {'_id': user_id, "win_normal": 0, "draw_normal": 0, "lose_normal": 0, "win_rank": 0, "draw_rank": 0,
+              "lose_rank": 0}
     return result
 
 
@@ -33,8 +34,9 @@ class UserHistoryCollectionManager:
             query = {'_id': user_id}
             update_data = {}
             user_data = self.read_user_history(user_id)
+            default_keys = ["win_normal", "draw_normal", "lose_normal", "win_rank", "draw_rank", "lose_rank", ]
             for key in incoming_data.keys():
-                if self.game_types.__contains__(key) or ["_normal", "draw_normal", "lose_normal"].__contains__(key):
+                if self.game_types.__contains__(key) or default_keys.__contains__(key):
                     # check prevoisly data was added
                     if user_data.keys().__contains__(key):
                         update_data[key] = incoming_data[key] + user_data[key]

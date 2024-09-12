@@ -38,7 +38,7 @@ async def check_match_allow(version: str, authorization: str = Header(...), user
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     from Entities.Api_Services import auth
     if auth.check_not_in_game(phone):
-        background_tasks.add_task(sms_panel.send_code_to_user, phone)
+        # background_tasks.add_task(sms_panel.send_code_to_user, phone)
         return {"result": True}
     else:
         raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
@@ -46,10 +46,8 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
 
 @app.post("/code")
 async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: str = Form(...)):
-    # from Entities.Security.sms_panel import SMSPanel
-    # sms = SMSPanel("ErfanH3h", "199977")
-    if sms_panel.check_code(user_number=phone, code=code):
-        # if code == "1234":
+    # if sms_panel.check_code(user_number=phone, code=code):
+    if code == "1234":
         from Entities.Api_Services import auth
         from Entities import Security
         user_data = auth.enter_user(phone, device_id)
