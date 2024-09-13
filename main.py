@@ -1,100 +1,16 @@
-import pymongo
-from fastapi import FastAPI, BackgroundTasks, Form, Header, Depends
+from fastapi import FastAPI
 import uvicorn
-from Entities.Api_Services import get_current_user
-from Entities import Network_Exeptions
-from Entities.Security.sms_panel import SMSPanel
-from Routers import admin_router
+from Routers import admin_router, auth_router, user_router, general_router
 from Entities.Database import game_database
 
 app = FastAPI(docs_url=None, redoc_url=None)
 
 app.include_router(admin_router.router)
-sms_panel = SMSPanel()
-sms_panel.start_timer()
+app.include_router(auth_router.router)
+app.include_router(user_router.router)
+app.include_router(general_router.router)
 
 game_database.check_create_collections()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/config")
-async def read_config():
-    from Entities import Api_Services
-    return {"result": Api_Services.get_config()}
-
-
-@app.post("/check_match_allow")
-async def check_match_allow(version: str, authorization: str = Header(...), user=Depends(get_current_user)):
-    from Entities import Api_Services
-    config_data = Api_Services.get_config()
-    return {"result": True}
-
-
-@app.post("/enter")
-async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
-    from Entities.Api_Services import auth
-    if auth.check_not_in_game(phone):
-        # background_tasks.add_task(sms_panel.send_code_to_user, phone)
-        return {"result": True}
-    else:
-        raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
-
-
-@app.post("/code")
-async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: str = Form(...)):
-    # if sms_panel.check_code(user_number=phone, code=code):
-    if code == "1234":
-        from Entities.Api_Services import auth
-        from Entities import Security
-        user_data = auth.enter_user(phone, device_id)
-        print(user_data['device_id'])
-        token = Security.create_access_token(
-            data={'phone': phone, 'id': user_data['_id'], 'device_id': device_id})
-        print(await Security.extract_token(token))
-        return {"user_data": user_data, "token": token}
-    else:
-        raise Network_Exeptions.raise422()
-
-
-@app.post("/complete-data")
-async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...)):
-    from Entities.Api_Services import auth
-    auth.complete_user(user['_id'], username)
-    return {"result": True}
-
-
-@app.get("/my-data")
-async def my_data(authorization: str = Header(...), user=Depends(get_current_user)):
-    return {"result": user}
-
-
-@app.get("/my-history")
-async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
-    from Entities.Api_Services import user
-    return {"result": user.user_histories(user_data['_id'])}
-
-
-@app.get("/my-game-history")
-async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
-    from Entities.Api_Services import user
-    return {"result": user.user_game_histories(user_data['_id'])}
-
-
-@app.get("/user-data")
-async def say_hello(userid: str, authorization: str = Header(...), user=Depends(get_current_user)):
-    return {"result": userid}
-
-
-@app.post("/update-image")
-async def say_hello(image: int = Form(...), authorization: str = Header(...), user_data=Depends(get_current_user)):
-    from Entities.Api_Services import user
-    user.update_image(user_data['_id'], image)
-    return {"result": True}
-
 
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=5001)

@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pymongo
+
 from Commons.static_functions import create_random_user_id
 
 
@@ -48,6 +50,18 @@ class UsersCollectionManager:
         for user in user_Data:
             result.append(user)
         return result
+
+    def read_ranking_users_by_score(self):
+        query = {'score': {'$gt': 0}}
+        selection_items = {"username": 1, "image": 1, "score": 1, "join_date": 1}
+        data = self.collection.find(query, selection_items).sort([('score', pymongo.DESCENDING)]).limit(5)
+        return data
+
+    def read_ranking_users_by_win(self, users_id: list):
+        query = {'_id': {'$in': users_id}}
+        selection_items = {"username": 1, "image": 1, "join_date": 1}
+        data = list(self.collection.find(query, selection_items))
+        return data
 
     def update_user(self, user_id, username=None, score=None, xp=None, coin=None, image=None, token=None,
                     open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None):
