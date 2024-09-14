@@ -99,3 +99,6 @@ class UsersCollectionManager:
         query = {}
         update_data = {'open_game_id': ""}
         self.collection.find_one_and_update(query, {'$set': update_data})
+
+    def get_count_of_users(self):
+        return self.collection.count_documents({})

@@ -62,3 +62,6 @@ class GameHistoryCollectionManager:
 
     def get_count_of_unfinished_games(self):
         return self.collection.count_documents({'is_finished': False})
+
+    def get_count_of_finished_games(self):
+        return self.collection.count_documents({'is_finished': True})

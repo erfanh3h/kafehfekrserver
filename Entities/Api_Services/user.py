@@ -1,3 +1,7 @@
+from Commons.app_consts import admin_token
+from Entities import Network_Exeptions
+
+
 def user_histories(user_id):
     from Entities.Database import game_database
     return game_database.user_history_manager.read_user_history(user_id)
@@ -40,3 +44,29 @@ def get_ranking_users_by_win():
 def update_image(user_id, image):
     from Entities.Database import game_database
     game_database.users_manager.update_user(user_id, image=image)
+
+
+def update_username(user_id, username):
+    from Entities.Database import game_database
+    game_database.users_manager.update_user(user_id, username=username)
+
+
+def update_coin(user_id, coin):
+    from Entities.Database import game_database
+    game_database.users_manager.update_user(user_id, coin=coin)
+
+
+def update_coin_by_admin(token, user_id, coin):
+    if token != admin_token:
+        raise Network_Exeptions.raise401()
+    else:
+        from Entities.Database import game_database
+        return game_database.users_manager.update_user(user_id, coin=coin)
+
+
+def get_users_count(token):
+    if token != admin_token:
+        raise Network_Exeptions.raise401()
+    else:
+        from Entities.Database import game_database
+        return game_database.users_manager.get_count_of_users()

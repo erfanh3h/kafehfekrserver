@@ -9,6 +9,12 @@ async def func1(token: str):
     return {"result": game.get_unfinished_games(token)}
 
 
+@router.get("/finished-games")
+async def func1(token: str):
+    from Entities.Api_Services import game
+    return {"result": game.get_finished_games(token)}
+
+
 @router.get("/delete-unfinished-games")
 async def func2(token: str):
     from Entities.Api_Services import game
@@ -27,3 +33,16 @@ async def func4(token: str, allowed, latest):
     from Entities.Api_Services import change_version
     change_version(token, allowed, latest)
     return {"result": [allowed, latest]}
+
+
+@router.get("/users-count")
+async def func1(token: str):
+    from Entities.Api_Services import user
+    return {"result": user.get_users_count(token)}
+
+
+@router.get("/update-coin")
+async def func1(token: str, user_id: str, value: int):
+    from Entities.Api_Services import user
+    user.update_coin_by_admin(token, user_id, value)
+    return {"result": value}
