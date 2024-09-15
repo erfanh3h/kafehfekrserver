@@ -1,7 +1,24 @@
 import os
+import threading
+import time
+from datetime import datetime
 
 import bson
 from pymongo import MongoClient
+
+
+def start_timer():
+    def entrypoint():  # this use to auto backup database every 24 hours
+        while True:
+            now = datetime.now()
+            if now.hour <= 2 and now.minute <= 30:
+                start_backup()
+                time.sleep(72000)
+            else:
+                time.sleep(3)
+
+    t = threading.Thread(target=entrypoint, daemon=True)
+    t.start()
 
 
 def dump(collections, conn, db_name, path):
@@ -33,19 +50,22 @@ def restore(path, conn, db_name):
     db = conn[db_name]
     for coll in os.listdir(path):
         if coll.endswith('.bson'):
-            with open(os.path.join(path, coll), 'rb+') as f:
-                db[coll.split('.')[0]].insert_many(bson.decode_all(f.read()))
+            try:
+                with open(os.path.join(path, coll), 'rb+') as f:
+                    db[coll.split('.')[0]].insert_many(bson.decode_all(f.read()))
+            except:
+                pass
 
 
 def start_restore():
-    DB_BACKUP_DIR = '/path/backups/'
+    DB_BACKUP_DIR = 'Backups/'
     conn = MongoClient("mongodb://localhost:27017/")
     db_name = 'KafehFekrDB'
     restore(DB_BACKUP_DIR, conn, db_name)
 
 
 def start_backup():
-    DB_BACKUP_DIR = '/path/backups/'
+    DB_BACKUP_DIR = 'Backups/'
     conn = MongoClient("mongodb://localhost:27017/")
     db_name = 'KafehFekrDB'
     collections = ['users', 'user_history', 'game_history', 'config']
