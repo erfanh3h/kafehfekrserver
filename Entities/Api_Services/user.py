@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from Commons.app_consts import admin_token
 from Entities import Network_Exeptions
 
@@ -70,3 +72,15 @@ def get_users_count(token):
     else:
         from Entities.Database import game_database
         return game_database.users_manager.get_count_of_users()
+
+
+def get_free_coin(user_id, prev_coin, last_time_chance: datetime):
+    possible_time = last_time_chance + timedelta(hours=8)
+    if possible_time < datetime.now():
+        from Commons.static_functions import get_random_coin
+        from Entities.Database import game_database
+        coin = get_random_coin()
+        game_database.users_manager.update_user(user_id, coin=coin + prev_coin, last_time_chance=datetime.now())
+        return coin
+    else:
+        raise Network_Exeptions.raise422(details="زمانش نرسیده")

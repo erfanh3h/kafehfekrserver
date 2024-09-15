@@ -39,7 +39,7 @@ def set_config_let_queue(token, value: bool, hour: int, minute: int):
                                                                                                minute))
 
 
-def change_version(token, latest, allowed):
+def change_version(token, allowed, latest):
     if token != admin_token:
         raise Network_Exeptions.raise401()
     else:

@@ -26,3 +26,9 @@ async def func1(authorization: str = Header(...), user_data=Depends(get_current_
 async def func2(authorization: str = Header(...), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
     return {"result": user.get_ranking_users_by_win()}
+
+
+@router.get("/get-free-coin")
+async def func2(authorization: str = Header(...), user_data=Depends(get_current_user)):
+    from Entities.Api_Services import user
+    return {"result": user.get_free_coin(user_data['_id'], user_data['coin'], user_data['last_time_chance'])}
