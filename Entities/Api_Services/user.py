@@ -43,14 +43,20 @@ def get_ranking_users_by_win():
     return result
 
 
-def update_image(user_id, image):
-    from Entities.Database import game_database
-    game_database.users_manager.update_user(user_id, image=image)
+def update_image(user_id, image, user_coin):
+    if user_coin < 50:
+        raise Network_Exeptions.raise422(details="سکه کافی نداری")
+    else:
+        from Entities.Database import game_database
+        game_database.users_manager.update_user(user_id, image=image, coin=user_coin - 50)
 
 
-def update_username(user_id, username):
-    from Entities.Database import game_database
-    game_database.users_manager.update_user(user_id, username=username)
+def update_username(user_id, username, user_coin):
+    if user_coin < 75:
+        raise Network_Exeptions.raise422(details="سکه کافی نداری")
+    else:
+        from Entities.Database import game_database
+        game_database.users_manager.update_user(user_id, username=username, coin=user_coin - 75)
 
 
 def update_coin(user_id, coin):
@@ -84,3 +90,13 @@ def get_free_coin(user_id, prev_coin, last_time_chance: datetime):
         return coin
     else:
         raise Network_Exeptions.raise422(details="زمانش نرسیده")
+
+
+def read_user_data(user_id):
+    from Entities.Database import game_database
+    return game_database.users_manager.read_global_user_data(user_id)
+
+
+def read_user_history_data(user_id):
+    from Entities.Database import game_database
+    return game_database.user_history_manager.read_user_global_history(user_id)

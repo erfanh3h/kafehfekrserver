@@ -63,6 +63,12 @@ class UsersCollectionManager:
         data = list(self.collection.find(query, selection_items))
         return data
 
+    def read_global_user_data(self, user_id):
+        query = {'_id': user_id}
+        selection_items = {"username": 1, "xp": 1, "image": 1, "score": 1, "join_date": 1}
+        data = self.collection.find_one(query, selection_items)
+        return data
+
     def update_user(self, user_id, username=None, score=None, xp=None, coin=None, image=None, token=None,
                     open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None):
         query = {'_id': user_id}
