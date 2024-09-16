@@ -100,3 +100,24 @@ def read_user_data(user_id):
 def read_user_history_data(user_id):
     from Entities.Database import game_database
     return game_database.user_history_manager.read_user_global_history(user_id)
+
+
+def purchase(user_id, product_id, market_type, token, prev_coin):
+    from Entities.Database import game_database
+    if product_id == "1":
+        coin = 50 + prev_coin
+    elif product_id == "2":
+        coin = 160 + prev_coin
+    elif product_id == "3":
+        coin = 330 + prev_coin
+    elif product_id == "4":
+        coin = 525 + prev_coin
+    elif product_id == "5":
+        coin = 1100 + prev_coin
+    elif product_id == "6":
+        coin = 1700 + prev_coin
+    else:
+        coin = prev_coin
+    game_database.users_manager.update_user(user_id, coin=coin)
+    game_database.purchase_manager.create_purchase(user_id, product_id, market_type, token)
+    return

@@ -40,7 +40,8 @@ class SMSPanel:
             code = static_functions.create_random_code()
             self.numbers_to_codes[user_number] = (code, datetime.now())
             self.sms_panel.send_pattern(
-                "w12zv0tnr93m2tq",  # originator
+                "ccnmmdqhf3hb0h7",  # originator
+                # "w12zv0tnr93m2tq",  # originator
                 "+983000505",  # recipients
                 recipient=user_number,
                 values={"c": code}

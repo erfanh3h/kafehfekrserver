@@ -17,9 +17,9 @@ def create_random_game_id() -> str:
     return result
 
 
-def create_random_user_id() -> str:
+def create_random_user_id(length=6) -> str:
     char_set = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    result = ''.join(random.sample(char_set * 6, 6))
+    result = ''.join(random.sample(char_set * 6, length))
     return result
 
 

@@ -11,11 +11,11 @@ def start_timer():
     def entrypoint():  # this use to auto backup database every 24 hours
         while True:
             now = datetime.now()
-            if now.hour <= 2 and now.minute <= 30:
+            if now.hour <= 1:
                 start_backup()
-                time.sleep(72000)
+                time.sleep(4000)
             else:
-                time.sleep(3)
+                time.sleep(3600)
 
     t = threading.Thread(target=entrypoint, daemon=True)
     t.start()
@@ -68,5 +68,5 @@ def start_backup():
     DB_BACKUP_DIR = 'Backups/'
     conn = MongoClient("mongodb://localhost:27017/")
     db_name = 'KafehFekrDB'
-    collections = ['users', 'user_history', 'game_history', 'config']
+    collections = ['users', 'user_history', 'game_history', 'config' , 'purchases']
     dump(collections, conn, db_name, DB_BACKUP_DIR)
