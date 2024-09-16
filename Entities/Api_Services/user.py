@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 from Commons.app_consts import admin_token
 from Entities import Network_Exeptions
 
+import requests
+
 
 def user_histories(user_id):
     from Entities.Database import game_database
@@ -103,21 +105,35 @@ def read_user_history_data(user_id):
 
 
 def purchase(user_id, product_id, market_type, token, prev_coin):
-    from Entities.Database import game_database
-    if product_id == "1":
-        coin = 50 + prev_coin
-    elif product_id == "2":
-        coin = 160 + prev_coin
-    elif product_id == "3":
-        coin = 330 + prev_coin
-    elif product_id == "4":
-        coin = 525 + prev_coin
-    elif product_id == "5":
-        coin = 1100 + prev_coin
-    elif product_id == "6":
-        coin = 1700 + prev_coin
+    if market_type == "Myket":
+        url = f'https://developer.myket.ir/api/partners/applications/kafeh.fekr.classic/purchases/products/{product_id}/verify'
+        data = {'tokenId': token}
+        header = {'X-Access-Token': "fb9aa38c-47f0-41d6-924b-ac712e553e5e"}
+        req = requests.post(url, json=data, headers=header)
+        try:
+            payload = req.json()['developerPayload']
+            is_token_true = True
+        except:
+            is_token_true = False
     else:
-        coin = prev_coin
-    game_database.users_manager.update_user(user_id, coin=coin)
-    game_database.purchase_manager.create_purchase(user_id, product_id, market_type, token)
-    return
+        is_token_true = True
+    if is_token_true:
+        from Entities.Database import game_database
+        if product_id == "1":
+            coin = 50 + prev_coin
+        elif product_id == "2":
+            coin = 160 + prev_coin
+        elif product_id == "3":
+            coin = 330 + prev_coin
+        elif product_id == "4":
+            coin = 525 + prev_coin
+        elif product_id == "5":
+            coin = 1100 + prev_coin
+        elif product_id == "6":
+            coin = 1700 + prev_coin
+        else:
+            coin = prev_coin
+        game_database.users_manager.update_user(user_id, coin=coin)
+        game_database.purchase_manager.create_purchase(user_id, product_id, market_type, token)
+        return True
+    return False

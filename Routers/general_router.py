@@ -38,5 +38,4 @@ async def func2(authorization: str = Header(...), user_data=Depends(get_current_
 async def say_hello(product_id: str = Form(...), market_type: str = Form(...), token: str = Form(...),
                     authorization: str = Header(...), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
-    user.purchase(user_data['_id'], product_id, market_type, token, user_data['coin'])
-    return {"result": True}
+    return {"result": user.purchase(user_data['_id'], product_id, market_type, token, user_data['coin'])}
