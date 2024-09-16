@@ -18,6 +18,10 @@ def enter_user(user_phone, device_id):
     return user_data
 
 
-def complete_user(user_id, username):
+def complete_user(user_id, username, rep_id):
     from Entities.Database import game_database
     game_database.users_manager.update_user(user_id, username=username)
+    if rep_id != "":
+        rep_user = game_database.users_manager.read_user(rep_id)
+        if rep_user is not None:
+            game_database.users_manager.update_user(rep_id, coin=rep_user['coin'] + 30)

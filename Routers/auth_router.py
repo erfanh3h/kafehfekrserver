@@ -37,7 +37,8 @@ async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: s
 
 
 @router.post("/complete-data")
-async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...)):
+async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...),
+                        rep_id: str = Form(...)):
     from Entities.Api_Services import auth
-    auth.complete_user(user['_id'], username)
+    auth.complete_user(user['_id'], username, rep_id)
     return {"result": True}

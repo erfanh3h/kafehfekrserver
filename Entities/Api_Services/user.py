@@ -45,12 +45,15 @@ def get_ranking_users_by_win():
     return result
 
 
-def update_image(user_id, image, user_coin):
-    if user_coin < 50:
+def update_image(user_id, image, user_coin, prev_image):
+    if user_coin < 50 and prev_image != 0:
         raise Network_Exeptions.raise422(details="سکه کافی نداری")
     else:
         from Entities.Database import game_database
-        game_database.users_manager.update_user(user_id, image=image, coin=user_coin - 50)
+        if prev_image == 0:
+            game_database.users_manager.update_user(user_id, image=image, coin=user_coin)
+        else:
+            game_database.users_manager.update_user(user_id, image=image, coin=user_coin - 50)
 
 
 def update_username(user_id, username, user_coin):

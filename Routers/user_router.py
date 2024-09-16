@@ -40,7 +40,7 @@ async def say_hello(user_id: str, authorization: str = Header(...), user_data=De
 @router.post("/update-image")
 async def say_hello(image: int = Form(...), authorization: str = Header(...), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
-    user.update_image(user_data['_id'], image, user_data['coin'])
+    user.update_image(user_data['_id'], image, user_data['coin'], user_data['image'])
     return {"result": True}
 
 
