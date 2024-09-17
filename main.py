@@ -15,6 +15,6 @@ game_database.check_create_collections()
 backup_timer()
 
 # from Entities.Api_Services import user
-# print(user.purchase("11", "1", "Myket", "22026177", 10))
+# print(user.purchase("hGSOlz", "1", "Bazaar", "22026177", 0))
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=5001)

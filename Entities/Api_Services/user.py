@@ -5,6 +5,8 @@ from Entities import Network_Exeptions
 
 import requests
 
+bazaar_access_token = "WUj6PEdIjgtimymkY8b8HKOvociLod"
+
 
 def user_histories(user_id):
     from Entities.Database import game_database
@@ -107,6 +109,19 @@ def read_user_history_data(user_id):
     return game_database.user_history_manager.read_user_global_history(user_id)
 
 
+def get_new_bazaar_token():
+    global bazaar_access_token
+    url = 'https://pardakht.cafebazaar.ir/devapi/v2/auth/token/'
+    data = {'grant_type': "refresh_token", "client_id": "kaBZZL25bFEn8HhvdplDbARwIkg62TIokTv0koVu",
+            "client_secret": "sucwTiAKMFcwbNlVIshe9zGtF1CYKZH3pz5n4kYoX4TIKAt0G7keypcEvYLV",
+            "refresh_token": "RIBu8CaRQFjOeRdv1CHSaFEEGXwgP3"}
+    req = requests.post(url, json=data)
+    try:
+        bazaar_access_token = req.json()['access_token']
+    except:
+        pass
+
+
 def purchase(user_id, product_id, market_type, token, prev_coin):
     if market_type == "Myket":
         url = f'https://developer.myket.ir/api/partners/applications/kafeh.fekr.classic/purchases/products/{product_id}/verify'
@@ -119,7 +134,18 @@ def purchase(user_id, product_id, market_type, token, prev_coin):
         except:
             is_token_true = False
     else:
-        is_token_true = True
+        url = f'https://pardakht.cafebazaar.ir/devapi/v2/api/validate/kafeh.fekr.classic/inapp/{product_id}/purchases/{token}/?access_token={bazaar_access_token}'
+        req = requests.post(url)
+        {}.keys().__contains__("error")
+        try:
+            payload = req.json()
+            if payload.keys().__contains__("error"):
+                is_token_true = False
+            else:
+                is_token_true = True
+        except:
+            get_new_bazaar_token()
+            return purchase(user_id, product_id, market_type, token, prev_coin)
     if is_token_true:
         from Entities.Database import game_database
         if product_id == "1":
