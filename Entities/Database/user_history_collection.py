@@ -44,7 +44,7 @@ class UserHistoryCollectionManager:
     def read_ranking_users_by_win(self):
         query = {'win_rank': {'$gt': 0}}
         selection_items = {"win_rank": 1}
-        data = self.collection.find(query, selection_items).sort([('win_rank', pymongo.DESCENDING)]).limit(5)
+        data = self.collection.find(query, selection_items).sort([('win_rank', pymongo.DESCENDING)]).limit(25)
         return data
 
     def update_user_history(self, user_id, incoming_data: dict):

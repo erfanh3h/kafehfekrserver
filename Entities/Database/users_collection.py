@@ -54,7 +54,7 @@ class UsersCollectionManager:
     def read_ranking_users_by_score(self):
         query = {'score': {'$gt': 0}}
         selection_items = {"username": 1, "image": 1, "score": 1, "join_date": 1}
-        data = self.collection.find(query, selection_items).sort([('score', pymongo.DESCENDING)]).limit(5)
+        data = self.collection.find(query, selection_items).sort([('score', pymongo.DESCENDING)]).limit(25)
         return data
 
     def read_ranking_users_by_win(self, users_id: list):
