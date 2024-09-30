@@ -67,3 +67,10 @@ class UserHistoryCollectionManager:
     def delete_user_history(self, user_id):
         query = {'_id': user_id}
         self.collection.delete_one(query)
+
+    def reset_users(self):
+        remove_data = {}
+        for game_type in self.game_types:
+            remove_data[game_type] = 0
+        self.collection.update_many({}, {'$set': {"win_normal": 0, "draw_normal": 0, "lose_normal": 0, "win_rank": 0,
+                                                  "draw_rank": 0, "lose_rank": 0}, '$unset': remove_data})

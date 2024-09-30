@@ -108,3 +108,10 @@ class UsersCollectionManager:
 
     def get_count_of_users(self):
         return self.collection.count_documents({})
+
+    def reset_users(self):
+        self.collection.update_many({}, {'$set': {'xp': 0, 'score': 0}})
+
+    def reset_coins(self):
+        query = {'coin': {'$lt': 50}}
+        self.collection.update_many(query, {'$set': {'coin': 50}})

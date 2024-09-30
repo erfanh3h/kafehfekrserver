@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, BackgroundTasks, Form, Header, Depends
 
 from Entities import Network_Exeptions
@@ -14,7 +16,7 @@ sms_panel.start_timer()
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     from Entities.Api_Services import auth
     if auth.check_not_in_game(phone):
-        background_tasks.add_task(sms_panel.send_code_to_user, phone)
+        # background_tasks.add_task(sms_panel.send_code_to_user, phone)
         return {"result": True}
     else:
         raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
@@ -22,8 +24,8 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
 
 @router.post("/code")
 async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: str = Form(...)):
-    if sms_panel.check_code(user_number=phone, code=code):
-    # if code == "1234":
+    # if sms_panel.check_code(user_number=phone, code=code):
+    if code == "1234":
         from Entities.Api_Services import auth
         from Entities import Security
         user_data = auth.enter_user(phone, device_id)
@@ -38,7 +40,7 @@ async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: s
 
 @router.post("/complete-data")
 async def complete_user(authorization: str = Header(...), user=Depends(get_current_user), username: str = Form(...),
-                        rep_id: str = Form(...)):
+                        rep_id: Optional[str] = Form(None)):
     from Entities.Api_Services import auth
     auth.complete_user(user['_id'], username, rep_id)
     return {"result": True}

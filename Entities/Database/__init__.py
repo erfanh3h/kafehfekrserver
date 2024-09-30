@@ -21,7 +21,8 @@ class DataBaseManager:
         if not self.db_client.list_database_names().__contains__("KafehFekrDB"):
             user_data, is_created = self.users_manager.create_user("9377804649", "Erfan")
             self.user_history_manager.create_user_history(user_data['_id'])
-            self.game_history_manager.create_game_history(0, "1", "2", "TicTacToe", game_score_type="Normal")
+            self.game_history_manager.create_game_history("0", "1", "1", "2",
+                                                          "TicTacToe","Normal")
             self.purchase_manager.create_purchase("1", "1", "bazaar", "t")
             self.config_manager.create_config()
 
