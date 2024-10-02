@@ -1,18 +1,19 @@
 from datetime import datetime
 
 
-def create_game_history_json(game_id, game_play_id, user1_id, user2_id, game_type, game_score_type) -> dict:
+def create_game_history_json(game_id, game_play_id, user1_id, user2_id, game_type, game_score_type, winner_id) -> dict:
     return {'_id': game_id, 'game_play_id': game_play_id, 'user1_id': user1_id, 'user2_id': user2_id,
-            "game_type": game_type,
-            "game_score_type": game_score_type, "is_finished": False, "start_date": datetime.now(), }
+            'winner_id': winner_id, "game_type": game_type, "game_score_type": game_score_type,
+            "date": datetime.now(), }
 
 
 class GameHistoryCollectionManager:
     def __init__(self, collection):
         self.collection = collection
 
-    def create_game_history(self, game_id, game_play_id, user1_id, user2_id, game_type, game_score_type):
-        game_data = create_game_history_json(game_id, game_play_id, user1_id, user2_id, game_type, game_score_type)
+    def create_game_history(self, game_id, game_play_id, user1_id, user2_id, game_type, game_score_type, winner_id):
+        game_data = create_game_history_json(game_id, game_play_id, user1_id, user2_id, game_type, game_score_type,
+                                             winner_id)
         self.collection.insert_one(game_data)
         return game_data
 
@@ -45,7 +46,7 @@ class GameHistoryCollectionManager:
     def update_game_history(self, game_id, winner_id):
         try:
             query = {'_id': game_id}
-            update_data = {"finish_data": datetime.now(), "is_finished": True, "winner_id": winner_id}
+            update_data = {"date": datetime.now(), "winner_id": winner_id}
             self.collection.find_one_and_update(query, {'$set': update_data})
         except:
             pass

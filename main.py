@@ -14,6 +14,9 @@ app.include_router(general_router.router)
 game_database.check_create_collections()
 backup_timer()
 
+# from Entities.Api_Services import reset_databases
+# reset_databases()
+
 # from Entities.Api_Services import user
 # print(user.purchase("hGSOlz", "1", "Bazaar", "22026177", 0))
 if __name__ == '__main__':

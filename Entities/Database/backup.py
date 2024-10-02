@@ -68,5 +68,6 @@ def start_backup():
     DB_BACKUP_DIR = 'Backups/'
     conn = MongoClient("mongodb://localhost:27017/")
     db_name = 'KafehFekrDB'
-    collections = ['users', 'user_history', 'game_history', 'config' , 'purchases']
+    collections = ['users', 'user_history', 'game_play_history', 'game_history', 'config', 'purchases',
+                   'game_play_history']
     dump(collections, conn, db_name, DB_BACKUP_DIR)
