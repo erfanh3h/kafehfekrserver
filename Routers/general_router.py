@@ -17,13 +17,13 @@ async def read_config():
 
 
 @router.get("/ranking-by-score")
-async def func1(authorization: str = Header(...), user_data=Depends(get_current_user)):
+async def func1():
     from Entities.Api_Services import user
     return {"result": user.get_ranking_users_by_score()}
 
 
 @router.get("/ranking-by-win")
-async def func2(authorization: str = Header(...), user_data=Depends(get_current_user)):
+async def func2():
     from Entities.Api_Services import user
     return {"result": user.get_ranking_users_by_win()}
 

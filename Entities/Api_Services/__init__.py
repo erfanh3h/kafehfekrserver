@@ -53,5 +53,3 @@ def reset_databases():
     game_database.users_manager.reset_coins()
     game_database.user_history_manager.reset_users()
     game_database.game_history_manager.reset_data()
-
-

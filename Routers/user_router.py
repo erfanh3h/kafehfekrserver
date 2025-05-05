@@ -30,7 +30,7 @@ async def say_hello(authorization: str = Header(...), user_data=Depends(get_curr
 
 
 @router.get("/user-data/{user_id}")
-async def say_hello(user_id: str, authorization: str = Header(...), user_data=Depends(get_current_user)):
+async def say_hello(user_id: str):
     from Entities.Api_Services import user
     data = user.read_user_data(user_id)
     history_data = user.read_user_history_data(user_id)

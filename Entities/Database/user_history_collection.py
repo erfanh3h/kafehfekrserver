@@ -4,8 +4,7 @@ from Entities.Games.game_types import GameTypesEnum
 
 
 def create_user_history_json(user_id) -> dict:
-    result = {'_id': user_id, "win_normal": 0, "draw_normal": 0, "lose_normal": 0, "win_rank": 0, "draw_rank": 0,
-              "lose_rank": 0}
+    result = {'_id': user_id, "win_rank": 0, "draw_rank": 0, "lose_rank": 0}
     return result
 
 
@@ -34,8 +33,7 @@ class UserHistoryCollectionManager:
     def read_user_global_history(self, user_id):
         try:
             query = {'_id': user_id}
-            selection_items = {"win_normal": 1, "draw_normal": 1, "lose_normal": 1, "win_rank": 1, "draw_rank": 1,
-                               "lose_rank": 1}
+            selection_items = {"win_rank": 1, "draw_rank": 1, "lose_rank": 1}
             user_Data = self.collection.find_one(query, selection_items)
             return user_Data
         except:
@@ -52,7 +50,7 @@ class UserHistoryCollectionManager:
             query = {'_id': user_id}
             update_data = {}
             user_data = self.read_user_history(user_id)
-            default_keys = ["win_normal", "draw_normal", "lose_normal", "win_rank", "draw_rank", "lose_rank", ]
+            default_keys = ["win_rank", "draw_rank", "lose_rank", ]
             for key in incoming_data.keys():
                 if self.game_types.__contains__(key) or default_keys.__contains__(key):
                     # check prevoisly data was added
@@ -72,5 +70,5 @@ class UserHistoryCollectionManager:
         remove_data = {}
         for game_type in self.game_types:
             remove_data[game_type] = 0
-        self.collection.update_many({}, {'$set': {"win_normal": 0, "draw_normal": 0, "lose_normal": 0, "win_rank": 0,
-                                                  "draw_rank": 0, "lose_rank": 0}, '$unset': remove_data})
+        self.collection.update_many({},
+                                    {'$set': {"win_rank": 0, "draw_rank": 0, "lose_rank": 0}, '$unset': remove_data})

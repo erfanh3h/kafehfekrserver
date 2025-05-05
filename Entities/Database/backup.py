@@ -12,7 +12,7 @@ def start_timer():
         while True:
             now = datetime.now()
             if now.hour <= 1:
-                start_backup()
+                # start_backup()
                 time.sleep(4000)
             else:
                 time.sleep(3600)
