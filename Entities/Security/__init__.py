@@ -37,6 +37,8 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
 
 async def extract_token(token):
     try:
+        if isinstance(token, str) and token.startswith("Bearer "):
+            token = token[7:].strip()
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         phone: int = payload.get("phone")
         id: str = payload.get("id")
