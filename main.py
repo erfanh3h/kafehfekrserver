@@ -21,3 +21,8 @@ backup_timer()
 # print(user.purchase("hGSOlz", "1", "Bazaar", "22026177", 0))
 if __name__ == '__main__':
     uvicorn.run(app, host='0.0.0.0', port=5001)
+
+# {
+#   "userId": "66055a02bb412d334272",
+#   "phone": "+989377804649"
+# }

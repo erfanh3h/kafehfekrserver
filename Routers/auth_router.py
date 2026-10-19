@@ -16,7 +16,7 @@ sms_panel.start_timer()
 async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     from Entities.Api_Services import auth
     if auth.check_not_in_game(phone):
-        # background_tasks.add_task(sms_panel.send_code_to_user, phone)
+        background_tasks.add_task(sms_panel.send_code_to_user, phone)
         return {"result": True}
     else:
         raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
