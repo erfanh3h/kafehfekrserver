@@ -17,11 +17,19 @@ class UsersCollectionManager:
         self.collection = collection
 
     def is_phone_avaialble(self, phone_number: str):
-        if len(phone_number) != 10:
-            return False
-        if phone_number[0] != "9":
-            return False
-        query = {'phone': phone_number}
+        phone_str = str(phone_number).strip().replace(" ", "")
+        variants = [phone_str]
+        if phone_str.startswith("+98"):
+            variants.append("0" + phone_str[3:])
+            variants.append(phone_str[3:])
+        elif phone_str.startswith("09"):
+            variants.append("+98" + phone_str[1:])
+            variants.append(phone_str[1:])
+        elif phone_str.startswith("9"):
+            variants.append("0" + phone_str)
+            variants.append("+98" + phone_str)
+
+        query = {'phone': {'$in': variants}}
         return self.collection.find_one(query)
 
     def create_user(self, phone, name="", device_id="0"):
@@ -39,9 +47,7 @@ class UsersCollectionManager:
         return user_Data
 
     def read_user_by_phone(self, user_phone):
-        query = {'phone': user_phone}
-        user_Data = self.collection.find_one(query)
-        return user_Data
+        return self.is_phone_avaialble(user_phone)
 
     def read_users(self, users):
         query = {'_id': {"$in": users}}
