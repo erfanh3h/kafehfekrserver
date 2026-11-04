@@ -43,3 +43,34 @@ def get_random_coin() -> int:
     if number == 5:
         return 20
     return 0
+
+
+PERSIAN_ARABIC_DIGITS = {
+    '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+    '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
+    '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+    '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+}
+
+
+def clean_phone_number(raw_phone: str) -> str:
+    if not raw_phone:
+        return ""
+    s = "".join(PERSIAN_ARABIC_DIGITS.get(ch, ch) for ch in str(raw_phone).strip())
+    s = "".join(ch for ch in s if ch.isdigit() or ch == '+')
+    if s.startswith("+98"):
+        s = "0" + s[3:]
+    elif s.startswith("0098"):
+        s = "0" + s[4:]
+    elif s.startswith("98") and len(s) == 12:
+        s = "0" + s[2:]
+    elif s.startswith("9") and len(s) == 10:
+        s = "0" + s
+    return s
+
+
+def clean_code(raw_code: str) -> str:
+    if not raw_code:
+        return ""
+    s = "".join(PERSIAN_ARABIC_DIGITS.get(ch, ch) for ch in str(raw_code).strip())
+    return "".join(ch for ch in s if ch.isdigit())
