@@ -31,6 +31,7 @@ def dump(collections, conn, db_name, path):
     :return:
     """
 
+    os.makedirs(path, exist_ok=True)
     db = conn[db_name]
     for coll in collections:
         with open(os.path.join(path, f'{coll}.bson'), 'wb+') as f:
@@ -47,6 +48,8 @@ def restore(path, conn, db_name):
     :return:
     """
 
+    if not os.path.exists(path):
+        return
     db = conn[db_name]
     for coll in os.listdir(path):
         if coll.endswith('.bson'):
@@ -58,15 +61,17 @@ def restore(path, conn, db_name):
 
 
 def start_restore():
-    DB_BACKUP_DIR = 'Backups/'
-    conn = MongoClient("mongodb://localhost:27017/")
+    DB_BACKUP_DIR = os.getenv("BACKUP_DIR", 'Backups/')
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+    conn = MongoClient(mongo_uri)
     db_name = 'KafehFekrDB'
     restore(DB_BACKUP_DIR, conn, db_name)
 
 
 def start_backup():
-    DB_BACKUP_DIR = 'Backups/'
-    conn = MongoClient("mongodb://localhost:27017/")
+    DB_BACKUP_DIR = os.getenv("BACKUP_DIR", 'Backups/')
+    mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+    conn = MongoClient(mongo_uri)
     db_name = 'KafehFekrDB'
     collections = ['users', 'user_history', 'game_play_history', 'game_history', 'config', 'purchases',
                    'game_play_history']

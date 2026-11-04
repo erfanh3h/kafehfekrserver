@@ -8,6 +8,7 @@ from Commons.static_functions import create_random_user_id
 def create_user_json(phone, name="", device_id="") -> dict:
     random_id = create_random_user_id()
     return {'_id': random_id, 'phone': phone, 'username': name, "score": 0, "xp": 0, "coin": 50, "image": 0, "token": 0,
+            "win_streak": 0, "last_daily_win": datetime(2000, 1, 1),
             "open_game_id": "", "device_id": device_id, "last_time_played": datetime(2000, 1, 1),
             "last_time_chance": datetime(2000, 1, 1), "is_active": True, "join_date": datetime.now()}
 
@@ -35,6 +36,8 @@ class UsersCollectionManager:
     def create_user(self, phone, name="", device_id="0"):
         data = self.is_phone_avaialble(phone)
         if data is None:
+            if str(phone).startswith("bot_") or str(name).startswith("bot_") or str(phone).startswith("test_bot"):
+                return None, False
             user_data = create_user_json(phone=phone, name=name, device_id=device_id)
             self.collection.insert_one(user_data)
             return user_data, True
@@ -58,13 +61,14 @@ class UsersCollectionManager:
         return result
 
     def read_ranking_users_by_score(self):
-        query = {'score': {'$gt': 0}}
+        query = {'score': {'$gt': 0}, '_id': {'$ne': '3goBRU', '$not': {'$regex': '^bot_'}}}
         selection_items = {"username": 1, "image": 1, "score": 1, "join_date": 1}
         data = self.collection.find(query, selection_items).sort([('score', pymongo.DESCENDING)]).limit(25)
         return data
 
     def read_ranking_users_by_win(self, users_id: list):
-        query = {'_id': {'$in': users_id}}
+        clean_ids = [uid for uid in users_id if not (str(uid).startswith("bot_") or str(uid).startswith("test_bot") or str(uid) == "3goBRU")]
+        query = {'_id': {'$in': clean_ids}}
         selection_items = {"username": 1, "image": 1, "join_date": 1}
         data = list(self.collection.find(query, selection_items))
         return data
@@ -76,17 +80,24 @@ class UsersCollectionManager:
         return data
 
     def update_user(self, user_id, username=None, score=None, xp=None, coin=None, image=None, token=None,
-                    open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None):
+                    open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None,
+                    win_streak=None, last_daily_win=None):
+        if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
+            return None
         query = {'_id': user_id}
         update_data = {}
         if username is not None:
             update_data['username'] = username
-        if score is not None and score >= 0:
-            update_data['score'] = int(score)
-        if xp is not None and xp >= 0:
-            update_data['xp'] = int(xp)
-        if coin is not None and coin >= 0:
-            update_data['coin'] = int(coin)
+        if score is not None:
+            update_data['score'] = max(0, int(score))
+        if xp is not None:
+            update_data['xp'] = max(0, int(xp))
+        if coin is not None:
+            update_data['coin'] = max(0, int(coin))
+        if win_streak is not None:
+            update_data['win_streak'] = max(0, int(win_streak))
+        if last_daily_win is not None:
+            update_data['last_daily_win'] = last_daily_win
         if image is not None:
             update_data['image'] = int(image)
         if token is not None:

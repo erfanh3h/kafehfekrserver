@@ -11,8 +11,9 @@ def enter_user(user_phone, device_id):
     from Entities.Database import game_database
     user_data, is_new_user = game_database.users_manager.create_user(phone=user_phone, device_id=device_id)
     if is_new_user:
-        game_database.user_history_manager.create_user_history(user_data['_id'])
-    else:
+        if user_data is not None:
+            game_database.user_history_manager.create_user_history(user_data['_id'])
+    elif user_data is not None:
         game_database.users_manager.update_user(user_data['_id'], device_id=device_id)
 
     return user_data

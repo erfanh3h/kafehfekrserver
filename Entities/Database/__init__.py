@@ -1,3 +1,4 @@
+import os
 import pymongo
 
 from Entities.Database.config_collection import ConfigCollectionManager
@@ -10,7 +11,8 @@ from Entities.Database.users_collection import UsersCollectionManager
 
 class DataBaseManager:
     def __init__(self):
-        self.db_client = pymongo.MongoClient("mongodb://localhost:27017/")
+        mongo_uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+        self.db_client = pymongo.MongoClient(mongo_uri)
         self.base_db = self.db_client["KafehFekrDB"]
         self.users_manager = UsersCollectionManager(self.base_db['users'])
         self.user_history_manager = UserHistoryCollectionManager(self.base_db['user_history'])

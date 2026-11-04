@@ -1,9 +1,9 @@
 fastapi[standard]
-uvicorn
+uvicorn[standard]
 pydantic
 passlib
 python-jose
 python-multipart
 pymongo
-python-jose
 ippanel
+requests

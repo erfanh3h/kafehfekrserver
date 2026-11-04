@@ -18,6 +18,8 @@ class UserHistoryCollectionManager:
             self.game_types.append(f'{game_type.lower()}_lose')
 
     def create_user_history(self, user_id):
+        if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
+            return None
         user_data = create_user_history_json(user_id)
         self.collection.insert_one(user_data)
         return user_data
@@ -40,12 +42,14 @@ class UserHistoryCollectionManager:
             return None
 
     def read_ranking_users_by_win(self):
-        query = {'win_rank': {'$gt': 0}}
+        query = {'win_rank': {'$gt': 0}, '_id': {'$ne': '3goBRU', '$not': {'$regex': '^bot_'}}}
         selection_items = {"win_rank": 1}
         data = self.collection.find(query, selection_items).sort([('win_rank', pymongo.DESCENDING)]).limit(25)
         return data
 
     def update_user_history(self, user_id, incoming_data: dict):
+        if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
+            return None
         try:
             query = {'_id': user_id}
             update_data = {}
