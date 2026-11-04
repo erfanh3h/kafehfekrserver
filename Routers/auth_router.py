@@ -21,6 +21,12 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
         raise Network_Exeptions.raise422(details="شماره موبایل وارد شده معتبر نمی باشد")
 
     if auth.check_not_in_game(clean_phone):
+        if static_functions.is_bot_phone(clean_phone):
+            # For bot logins, do NOT send any real SMS!
+            sms_panel.set_bot_code(clean_phone, "1234")
+            print(f"[Auth] Bot login detected for {clean_phone}. SMS sending strictly suppressed, code 1234 ready.")
+            return {"result": True}
+
         background_tasks.add_task(sms_panel.send_code_to_user, clean_phone)
         return {"result": True}
     else:

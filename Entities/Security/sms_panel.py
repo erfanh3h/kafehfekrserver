@@ -33,11 +33,23 @@ class SMSPanel:
         t = threading.Thread(target=entrypoint, daemon=True)
         t.start()
 
+    def set_bot_code(self, user_number, code="1234"):
+        phone_clean = static_functions.clean_phone_number(user_number)
+        if phone_clean:
+            with self._lock:
+                self.numbers_to_codes[phone_clean] = (code, datetime.now())
+
     def send_code_to_user(self, user_number):
         phone_clean = static_functions.clean_phone_number(user_number)
         if not phone_clean:
             print(f"[SMSPanel] Invalid phone number provided: {user_number}")
             return False
+
+        # Strictly suppress SMS for bots and test accounts
+        if static_functions.is_bot_phone(phone_clean):
+            self.set_bot_code(phone_clean, "1234")
+            print(f"[SMSPanel] Bot/test phone {phone_clean} detected in send_code_to_user. SMS strictly suppressed, code 1234 active.")
+            return True
 
         try:
             code = static_functions.create_random_code()
@@ -65,7 +77,7 @@ class SMSPanel:
                 return False
 
             # Allow test bot phone(s) with master code "1234"
-            if phone_clean == "09131234567" and code_clean == "1234":
+            if static_functions.is_bot_phone(phone_clean) and code_clean == "1234":
                 print(f"[SMSPanel] Test bot {phone_clean} authenticated via master code.")
                 return True
 
