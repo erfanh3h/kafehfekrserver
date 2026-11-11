@@ -10,7 +10,11 @@ bazaar_access_token = "WUj6PEdIjgtimymkY8b8HKOvociLod"
 
 def user_histories(user_id):
     from Entities.Database import game_database
-    return game_database.user_history_manager.read_user_history(user_id)
+    from Entities.Database.user_history_collection import create_user_history_json
+    data = game_database.user_history_manager.read_user_history(user_id)
+    if not data:
+        data = game_database.user_history_manager.create_user_history(user_id) or create_user_history_json(user_id)
+    return data
 
 
 def user_game_histories(user_id):
@@ -221,7 +225,11 @@ def read_user_data(user_id):
 
 def read_user_history_data(user_id):
     from Entities.Database import game_database
-    return game_database.user_history_manager.read_user_global_history(user_id)
+    from Entities.Database.user_history_collection import create_user_history_json
+    data = game_database.user_history_manager.read_user_history(user_id)
+    if not data:
+        data = game_database.user_history_manager.create_user_history(user_id) or create_user_history_json(user_id)
+    return data
 
 
 def get_new_bazaar_token():
