@@ -24,6 +24,7 @@ class GameTypesEnum(Enum):
     RISK = "Risk"
     UNO = "Uno"
     BACKGAMMON = "BackGammon"
+    QUORIDOR = "Quoridor"
 
     @classmethod
     def all(cls) -> List[Enum]:
