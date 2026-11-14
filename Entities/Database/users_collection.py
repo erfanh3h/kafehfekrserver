@@ -132,3 +132,66 @@ class UsersCollectionManager:
     def reset_coins(self):
         query = {'coin': {'$lt': 50}}
         self.collection.update_many(query, {'$set': {'coin': 50}})
+
+    def search_users(self, query_text: str, exclude_ids: list | set | None = None, limit: int = 25) -> list[dict]:
+        q_str = str(query_text or "").strip()
+        if not q_str:
+            return []
+        excluded = set(str(x) for x in (exclude_ids or []))
+        excluded.add("3goBRU")
+        q = {
+            "_id": {"$nin": list(excluded), "$not": {"$regex": "^bot_|^test_bot"}},
+            "$or": [
+                {"_id": {"$regex": q_str, "$options": "i"}},
+                {"username": {"$regex": q_str, "$options": "i"}},
+            ],
+        }
+        selection = {
+            "_id": 1,
+            "username": 1,
+            "image": 1,
+            "score": 1,
+            "xp": 1,
+            "join_date": 1,
+            "profile_frame": 1,
+            "profile_title": 1,
+            "profile_badge": 1,
+            "status_message": 1,
+            "privacy": 1,
+        }
+        cursor = self.collection.find(q, selection).sort([("score", pymongo.DESCENDING)]).limit(max(1, min(limit, 50)))
+        return list(cursor)
+
+    def update_social_customization(
+        self,
+        user_id: str,
+        profile_frame: int | None = None,
+        profile_title: str | None = None,
+        profile_badge: str | None = None,
+        status_message: str | None = None,
+        privacy: dict | None = None,
+    ) -> dict | None:
+        uid = str(user_id)
+        if uid.startswith("bot_") or uid.startswith("test_bot"):
+            return None
+        upd = {}
+        if profile_frame is not None:
+            upd["profile_frame"] = max(0, int(profile_frame))
+        if profile_title is not None:
+            upd["profile_title"] = str(profile_title).strip()[:40]
+        if profile_badge is not None:
+            upd["profile_badge"] = str(profile_badge).strip()[:40]
+        if status_message is not None:
+            upd["status_message"] = str(status_message).strip()[:120]
+        if isinstance(privacy, dict):
+            clean_priv = {
+                "allow_friend_requests": bool(privacy.get("allow_friend_requests", True)),
+                "allow_dms": str(privacy.get("allow_dms", "everyone")),  # everyone | friends | none
+                "show_last_seen": bool(privacy.get("show_last_seen", True)),
+                "show_current_game": bool(privacy.get("show_current_game", True)),
+                "show_match_history": bool(privacy.get("show_match_history", True)),
+            }
+            upd["privacy"] = clean_priv
+        if upd:
+            self.collection.find_one_and_update({"_id": uid}, {"$set": upd})
+        return self.read_user(uid)

@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 import uvicorn
-from Routers import admin_router, auth_router, user_router, general_router
+from Routers import admin_router, auth_router, user_router, general_router, social_router, clan_router, messaging_router, notification_router
 from Entities.Database import game_database
 from Entities.Database.backup import start_timer as backup_timer
 
@@ -15,6 +15,10 @@ app.include_router(admin_router.router)
 app.include_router(auth_router.router)
 app.include_router(user_router.router)
 app.include_router(general_router.router)
+app.include_router(social_router.router)
+app.include_router(clan_router.router)
+app.include_router(messaging_router.router)
+app.include_router(notification_router.router)
 
 game_database.check_create_collections()
 backup_timer()
