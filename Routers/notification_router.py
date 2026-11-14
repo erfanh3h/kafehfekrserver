@@ -1,5 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, Header, Request
+
 from Entities.Api_Services import get_current_user
 from Entities.Api_Services.social import notifications
 from Routers.social_router import extract_request_data
@@ -7,6 +8,7 @@ from Routers.social_router import extract_request_data
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
+@router.get("/list")
 @router.get("")
 @router.get("/")
 async def get_notifications_endpoint(
@@ -55,4 +57,8 @@ async def update_notification_prefs_endpoint(
             prefs = json.loads(prefs)
         except Exception:
             prefs = {}
-    return {"result": notifications.update_notification_preferences(str(user["_id"]), prefs if isinstance(prefs, dict) else {})}
+    return {
+        "result": notifications.update_notification_preferences(
+            str(user["_id"]), prefs if isinstance(prefs, dict) else {}
+        )
+    }

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, Request
+
 from Entities.Api_Services import get_current_user
 from Entities.Api_Services.social import messages
 from Routers.social_router import extract_request_data
@@ -16,6 +17,7 @@ async def list_conversations_endpoint(
     return {"result": messages.get_conversations_list(str(user["_id"]), skip=skip, limit=limit)}
 
 
+@router.get("/direct/{partner_id}")
 @router.get("/dm/{partner_id}")
 async def get_dm_history_endpoint(
     partner_id: str,
@@ -27,6 +29,7 @@ async def get_dm_history_endpoint(
     return {"result": messages.get_direct_messages_history(str(user["_id"]), partner_id, skip=skip, limit=limit)}
 
 
+@router.post("/direct/send")
 @router.post("/dm/send")
 async def send_dm_endpoint(
     request: Request,
@@ -39,6 +42,7 @@ async def send_dm_endpoint(
     return {"result": messages.send_direct_message(user, to_id, text)}
 
 
+@router.post("/direct/read")
 @router.post("/dm/read")
 async def mark_dm_read_endpoint(
     request: Request,

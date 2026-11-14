@@ -23,8 +23,10 @@ def list_notifications(user_id: str, skip: int = 0, limit: int = 40, unread_only
     docs = game_database.notifications_manager.get_notifications(uid, skip=skip, limit=limit, unread_only=unread_only)
     unread_cnt = game_database.notifications_manager.get_unread_count(uid)
     dm_unread = game_database.direct_messages_manager.get_total_unread_count(uid)
+    formatted = [_format_notification(d) for d in docs]
     return {
-        "notifications": [_format_notification(d) for d in docs],
+        "items": formatted,
+        "notifications": formatted,
         "unread_count": unread_cnt,
         "unread_dm_count": dm_unread,
         "preferences": game_database.notifications_manager.get_preferences(uid),

@@ -81,7 +81,7 @@ class UsersCollectionManager:
 
     def update_user(self, user_id, username=None, score=None, xp=None, coin=None, image=None, token=None,
                     open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None,
-                    win_streak=None, last_daily_win=None):
+                    win_streak=None, last_daily_win=None, created_clan_id=None):
         if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
             return None
         query = {'_id': user_id}
@@ -112,6 +112,8 @@ class UsersCollectionManager:
             update_data['last_time_chance'] = last_time_chance
         if is_active is not None:
             update_data['is_active'] = is_active
+        if created_clan_id is not None:
+            update_data['created_clan_id'] = str(created_clan_id)
         self.collection.find_one_and_update(query, {'$set': update_data})
 
     def delete_user(self, user_id):
@@ -140,7 +142,7 @@ class UsersCollectionManager:
         excluded = set(str(x) for x in (exclude_ids or []))
         excluded.add("3goBRU")
         q = {
-            "_id": {"$nin": list(excluded), "$not": {"$regex": "^bot_|^test_bot"}},
+            "_id": {"$nin": list(excluded)},
             "$or": [
                 {"_id": {"$regex": q_str, "$options": "i"}},
                 {"username": {"$regex": q_str, "$options": "i"}},
@@ -160,7 +162,7 @@ class UsersCollectionManager:
             "privacy": 1,
         }
         cursor = self.collection.find(q, selection).sort([("score", pymongo.DESCENDING)]).limit(max(1, min(limit, 50)))
-        return list(cursor)
+        return [u for u in cursor if not str(u.get("_id", "")).startswith(("bot_", "test_bot"))]
 
     def update_social_customization(
         self,

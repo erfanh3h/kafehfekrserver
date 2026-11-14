@@ -48,6 +48,7 @@ def search_players(viewer_id: str, query_text: str, limit: int = 25) -> list[dic
         item["is_friend"] = uid in friend_ids
         item["request_sent"] = uid in outgoing_reqs
         item["request_received"] = uid in incoming_reqs
+        item["pending_request"] = {"direction": "outgoing"} if uid in outgoing_reqs else ({"direction": "incoming"} if uid in incoming_reqs else None)
         out.append(item)
     return out
 
@@ -178,10 +179,12 @@ def get_friend_requests(user_id: str) -> dict:
     incoming_list = []
     for r in inc:
         fid = str(r["from_user_id"])
+        u_inc = summaries.get(fid, {"user_id": fid, "username": "بازیکن", "image": 0})
         incoming_list.append(
             {
                 "request_id": str(r["_id"]),
-                "from_user": summaries.get(fid, {"user_id": fid, "username": "بازیکن", "image": 0}),
+                "user": u_inc,
+                "from_user": u_inc,
                 "message": str(r.get("message", "")),
                 "created_at": serialize_dt(r.get("created_at")),
             }
@@ -190,10 +193,12 @@ def get_friend_requests(user_id: str) -> dict:
     outgoing_list = []
     for r in out:
         tid = str(r["to_user_id"])
+        u_out = summaries.get(tid, {"user_id": tid, "username": "بازیکن", "image": 0})
         outgoing_list.append(
             {
                 "request_id": str(r["_id"]),
-                "to_user": summaries.get(tid, {"user_id": tid, "username": "بازیکن", "image": 0}),
+                "user": u_out,
+                "to_user": u_out,
                 "message": str(r.get("message", "")),
                 "created_at": serialize_dt(r.get("created_at")),
             }
@@ -256,4 +261,4 @@ def get_recently_played_and_suggestions(user_id: str, limit: int = 15) -> dict:
             d["request_sent"] = sid in outgoing_reqs
             suggested_out.append(d)
 
-    return {"recently_played": recent_out, "suggestions": suggested_out}
+    return {"recently_played": recent_out, "suggestions": suggested_out, "suggested_friends": suggested_out}

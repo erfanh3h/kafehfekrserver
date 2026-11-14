@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, Request
+
 from Entities.Api_Services import get_current_user
 from Entities.Api_Services.social import clans
 from Routers.social_router import extract_request_data
@@ -6,6 +7,7 @@ from Routers.social_router import extract_request_data
 router = APIRouter(prefix="/clans", tags=["clans"])
 
 
+@router.get("/search")
 @router.get("/directory")
 async def search_clans_endpoint(
     q: str = "",
@@ -32,6 +34,7 @@ async def search_clans_endpoint(
     }
 
 
+@router.get("/my")
 @router.get("/my-clan")
 async def get_my_clan_endpoint(
     authorization: str = Header(...),
@@ -59,15 +62,6 @@ async def get_my_clan_invitations_endpoint(
                 }
             )
     return {"result": out}
-
-
-@router.get("/details/{clan_id}")
-async def get_clan_details_endpoint(
-    clan_id: str,
-    authorization: str = Header(...),
-    user=Depends(get_current_user),
-):
-    return {"result": clans.get_clan_details(str(user["_id"]), clan_id)}
 
 
 @router.post("/create")
@@ -104,6 +98,7 @@ async def join_clan_endpoint(
     return {"result": clans.join_or_request_clan(user, clan_id, message)}
 
 
+@router.post("/requests/respond")
 @router.post("/join-request/respond")
 async def respond_join_request_endpoint(
     request: Request,
@@ -127,6 +122,7 @@ async def invite_to_clan_endpoint(
     return {"result": clans.invite_player_to_clan(user, target_id)}
 
 
+@router.post("/invitations/respond")
 @router.post("/invite/respond")
 async def respond_clan_invite_endpoint(
     request: Request,
@@ -199,6 +195,7 @@ async def update_clan_settings_endpoint(
     return {"result": clans.update_clan_settings(user, params)}
 
 
+@router.post("/friendly-challenge")
 @router.post("/challenge")
 async def create_clan_challenge_endpoint(
     request: Request,
@@ -213,3 +210,13 @@ async def create_clan_challenge_endpoint(
             player_count=int(params.get("player_count", 2) or 2),
         )
     }
+
+
+@router.get("/details/{clan_id}")
+@router.get("/{clan_id}")
+async def get_clan_details_endpoint(
+    clan_id: str,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    return {"result": clans.get_clan_details(str(user["_id"]), clan_id)}

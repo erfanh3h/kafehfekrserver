@@ -18,7 +18,7 @@ CLAN_ROLE_FA = {
 }
 
 DEFAULT_MAX_CLAN_MEMBERS = 40
-CLAN_CREATION_COIN_COST = 250
+CLAN_CREATION_COIN_COST = 0
 
 
 def calculate_clan_level(clan_xp: int) -> int:
@@ -114,6 +114,10 @@ class ClansCollectionManager:
     def get_user_membership(self, user_id: str):
         return self.members.find_one({"user_id": str(user_id)})
 
+    def get_clan_by_creator_or_leader(self, user_id: str):
+        uid = str(user_id)
+        return self.clans.find_one({"$or": [{"creator_id": uid}, {"leader_id": uid}]})
+
     def get_clan_members(self, clan_id: str) -> list[dict]:
         cursor = self.members.find({"clan_id": str(clan_id)}).sort(
             [("role_rank", pymongo.DESCENDING), ("contribution_score", pymongo.DESCENDING)]
@@ -154,6 +158,7 @@ class ClansCollectionManager:
             "join_type": join_type,
             "min_score": max(0, int(min_score)),
             "min_level": max(1, int(min_level)),
+            "creator_id": str(leader_id),
             "leader_id": str(leader_id),
             "clan_level": 1,
             "clan_xp": 0,

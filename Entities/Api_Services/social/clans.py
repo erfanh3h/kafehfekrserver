@@ -80,6 +80,7 @@ def _serialize_clan(clan_doc: dict | None, viewer_membership: dict | None = None
         "weekly_challenges": challenges_progress,
         "created_at": serialize_dt(clan_doc.get("created_at")),
         "my_role": str(viewer_membership.get("role", "")) if viewer_membership else "",
+        "my_role_fa": CLAN_ROLE_FA.get(str(viewer_membership.get("role", "member")), "عضو") if viewer_membership else "",
     }
     return out
 
@@ -125,14 +126,15 @@ def create_clan(
     if game_database.clans_manager.read_clan_by_tag(clean_tag) is not None:
         raise Network_Exeptions.raise409(details="این تگ کلن قبلاً ثبت شده است.")
 
-    user_coin = int(user_data.get("coin", 0) or 0)
-    if user_coin < CLAN_CREATION_COIN_COST:
-        raise Network_Exeptions.raise422(
-            details=f"برای ساخت کلن به {CLAN_CREATION_COIN_COST} سکه نیاز دارید."
+    # Clan creation is free, but each player can create only 1 clan
+    already_created = (
+        bool(user_data.get("created_clan_id"))
+        or game_database.clans_manager.get_clan_by_creator_or_leader(uid) is not None
+    )
+    if already_created:
+        raise Network_Exeptions.raise409(
+            details="هر بازیکن فقط می‌تواند یک کلن بسازد."
         )
-
-    # Deduct coin cost atomically via existing users_manager
-    game_database.users_manager.update_user(uid, coin=user_coin - CLAN_CREATION_COIN_COST)
 
     clan_doc = game_database.clans_manager.create_clan(
         leader_id=uid,
@@ -145,6 +147,10 @@ def create_clan(
         min_score=min_score,
         min_level=min_level,
     )
+    try:
+        game_database.users_manager.update_user(uid, created_clan_id=str(clan_doc["_id"]))
+    except Exception:
+        pass
     _post_clan_system_message(
         clan_doc["_id"],
         f"🏰 کلن «{clean_name}» ({clean_tag}) توسط {user_data.get('username', 'بازیکن')} تاسیس شد!",
@@ -186,7 +192,17 @@ def get_clan_details(viewer_id: str, clan_id: str) -> dict:
     if not cid:
         my_mem = game_database.clans_manager.get_user_membership(vid)
         if not my_mem:
-            return {"clan": None, "members": [], "join_requests": []}
+            raw_invs = game_database.clans_manager.get_user_clan_invitations(vid)
+            invs_out = []
+            for inv in raw_invs:
+                c_doc = game_database.clans_manager.read_clan(str(inv.get("clan_id", "")))
+                if c_doc:
+                    invs_out.append({
+                        "invite_id": str(inv["_id"]),
+                        "clan": _serialize_clan(c_doc),
+                        "from_user_id": str(inv.get("from_user_id", "")),
+                    })
+            return {"clan": None, "members": [], "join_requests": [], "invitations": invs_out}
         cid = str(my_mem["clan_id"])
 
     clan_doc = game_database.clans_manager.read_clan(cid)
@@ -250,11 +266,17 @@ def get_clan_details(viewer_id: str, clan_id: str) -> dict:
             for a in game_database.clans_manager.get_audit_logs(cid, limit=25)
         ]
 
+    serialized_clan = _serialize_clan(clan_doc, my_mem if in_this_clan else None)
+    serialized_clan["members"] = members_out
+    serialized_clan["pending_join_requests"] = join_requests_out
+    serialized_clan["audit_logs"] = audit_logs_out
     return {
-        "clan": _serialize_clan(clan_doc, my_mem if in_this_clan else None),
+        "clan": serialized_clan,
         "members": members_out,
         "join_requests": join_requests_out,
+        "pending_join_requests": join_requests_out,
         "audit_logs": audit_logs_out,
+        "invitations": [],
     }
 
 

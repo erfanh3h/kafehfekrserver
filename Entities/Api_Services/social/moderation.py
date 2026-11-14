@@ -26,7 +26,13 @@ def list_blocked_players(user_id: str) -> list[dict]:
     if not b_ids:
         return []
     users = game_database.users_manager.read_users(b_ids)
-    return [sanitize_public_user_summary(u) for u in users]
+    out = []
+    for u in users:
+        s = sanitize_public_user_summary(u)
+        item = dict(s)
+        item["user"] = s
+        out.append(item)
+    return out
 
 
 def report_target(

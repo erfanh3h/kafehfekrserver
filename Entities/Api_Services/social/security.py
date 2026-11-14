@@ -125,6 +125,19 @@ def sanitize_public_user_summary(user_doc: dict | None, presence_doc: dict | Non
         "current_game_id": str(pres.get("current_game_id", "")) if show_game else "",
         "current_lobby_id": str(pres.get("current_lobby_id", "")) if show_game else "",
         "last_seen": str(pres.get("last_seen", "")) if show_last_seen else "",
+        "presence": {
+            "status": st,
+            "current_game_type": str(pres.get("current_game_type", "")) if show_game else "",
+            "current_game_id": str(pres.get("current_game_id", "")) if show_game else "",
+            "current_lobby_id": str(pres.get("current_lobby_id", "")) if show_game else "",
+            "last_seen": str(pres.get("last_seen", "")) if show_last_seen else "",
+        },
+        "tier": {
+            "id": tier["id"],
+            "title": tier["title"],
+            "title_fa": tier["title"],
+            "icon": "👑" if tier["id"] == "grandmaster" else ("💎" if tier["id"] == "diamond" else "🏆"),
+        },
     }
     if clan_doc:
         out["clan"] = {

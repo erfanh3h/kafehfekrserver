@@ -1,55 +1,51 @@
 import json
 from fastapi import APIRouter, Depends, Header, Request
+
 from Entities.Api_Services import get_current_user
 from Entities.Api_Services.social import (
     friends,
     profiles,
-    invitations,
     leaderboards,
+    invitations,
     moderation,
-    notifications,
     clans,
+    notifications,
 )
 
 router = APIRouter(prefix="/social", tags=["social"])
 
 
 async def extract_request_data(request: Request) -> dict:
-    data: dict = dict(request.query_params)
-    content_type = (request.headers.get("content-type") or "").lower()
     try:
-        if "application/json" in content_type:
+        ctype = (request.headers.get("content-type") or "").lower()
+        if "application/json" in ctype:
             body = await request.json()
             if isinstance(body, dict):
-                data.update(body)
-        elif "form" in content_type:
-            form = await request.form()
-            for k, v in form.items():
-                data[k] = v
-        else:
-            raw = await request.body()
-            if raw:
-                try:
-                    parsed = json.loads(raw.decode("utf-8"))
-                    if isinstance(parsed, dict):
-                        data.update(parsed)
-                except Exception:
-                    form = await request.form()
-                    for k, v in form.items():
-                        data[k] = v
+                return body
+        form = await request.form()
+        if form:
+            return dict(form)
+        raw = await request.body()
+        if raw:
+            parsed = json.loads(raw.decode("utf-8"))
+            if isinstance(parsed, dict):
+                return parsed
     except Exception:
         pass
-    return data
+    return dict(request.query_params)
 
 
 @router.get("/overview")
-async def social_overview(authorization: str = Header(...), user=Depends(get_current_user)):
+async def get_social_overview(
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
     uid = str(user["_id"])
     f_list = friends.get_friends_list(uid)
     reqs = friends.get_friend_requests(uid)
-    notifs = notifications.list_notifications(uid, limit=20)
     my_clan = clans.get_clan_details(uid, "")
     active_invites = invitations.list_active_invitations(uid)
+    notifs = notifications.list_notifications(uid, skip=0, limit=15)
     clan_invites = clans.game_database.clans_manager.get_user_clan_invitations(uid)
     return {
         "result": {
@@ -65,17 +61,36 @@ async def social_overview(authorization: str = Header(...), user=Depends(get_cur
 
 
 @router.get("/friends")
-async def get_friends(authorization: str = Header(...), user=Depends(get_current_user)):
+async def get_friends_endpoint(
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
     uid = str(user["_id"])
-    return {
-        "result": {
-            "friends": friends.get_friends_list(uid),
-            "requests": friends.get_friend_requests(uid),
-            "discover": friends.get_recently_played_and_suggestions(uid),
-        }
-    }
+    return {"result": friends.get_friends_list(uid)}
 
 
+@router.get("/friends/requests")
+@router.get("/friend-requests")
+async def get_friend_requests_endpoint(
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    uid = str(user["_id"])
+    return {"result": friends.get_friend_requests(uid)}
+
+
+@router.get("/friends/discover")
+@router.get("/discover")
+async def get_friends_discover_endpoint(
+    limit: int = 15,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    uid = str(user["_id"])
+    return {"result": friends.get_recently_played_and_suggestions(uid, limit=limit)}
+
+
+@router.get("/players/search")
 @router.get("/search-players")
 async def search_players_endpoint(
     q: str = "",
@@ -86,6 +101,7 @@ async def search_players_endpoint(
     return {"result": friends.search_players(str(user["_id"]), q, limit=limit)}
 
 
+@router.post("/friends/request")
 @router.post("/friend-request/send")
 async def send_friend_request_endpoint(
     request: Request,
@@ -98,6 +114,7 @@ async def send_friend_request_endpoint(
     return {"result": friends.send_friend_request(str(user["_id"]), target_id, message)}
 
 
+@router.post("/friends/respond")
 @router.post("/friend-request/respond")
 async def respond_friend_request_endpoint(
     request: Request,
@@ -110,6 +127,7 @@ async def respond_friend_request_endpoint(
     return {"result": friends.respond_friend_request(str(user["_id"]), req_id, action)}
 
 
+@router.post("/friends/remove")
 @router.post("/friend/remove")
 async def remove_friend_endpoint(
     request: Request,
@@ -143,7 +161,11 @@ async def customize_profile_endpoint(
             priv = json.loads(priv)
         except Exception:
             priv = None
-    frame = int(params["profile_frame"]) if "profile_frame" in params and str(params["profile_frame"]).isdigit() else None
+    frame = (
+        int(params["profile_frame"])
+        if "profile_frame" in params and str(params["profile_frame"]).isdigit()
+        else None
+    )
     return {
         "result": profiles.update_my_profile_customization(
             user_id=str(user["_id"]),
@@ -261,10 +283,10 @@ async def report_endpoint(
     return {
         "result": moderation.report_target(
             reporter_id=str(user["_id"]),
-            target_user_id=str(params.get("target_user_id", "")),
+            target_user_id=str(params.get("target_user_id", params.get("target_id", ""))),
             reason=str(params.get("reason", "تخلف")),
             target_type=str(params.get("target_type", "player")),
-            target_id=str(params.get("target_id", "")),
+            target_id=str(params.get("target_id", params.get("target_user_id", ""))),
             details=str(params.get("details", "")),
         )
     }

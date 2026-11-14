@@ -440,13 +440,10 @@ class CafeFekrSocialSystemTests(unittest.TestCase):
         unblock_player("u1", "u2")
         self.assertFalse(game_database.friends_manager.is_blocked("u1", "u2"))
 
-    # 4. Clan Creation, Coin Cost Validation, Roles, Capacity & Leadership Transfer
+    # 4. Clan Creation (Free, Max 1 Clan Per Player), Roles, Capacity & Leadership Transfer
     def test_04_clan_creation_roles_capacity_and_leadership_transfer(self):
-        # u3 has only 100 coins (< 250 required) -> fails
-        with self.assertRaises(FakeHTTPException):
-            create_clan(self.u3, name="PoorClan", tag="#POOR")
-
-        # u1 has 500 coins -> creates clan and deducts 250 coins
+        # Clan creation is free (0 coin cost)
+        self.assertEqual(CLAN_CREATION_COIN_COST, 0)
         u1_doc = game_database.users_manager.read_user("u1")
         clan = create_clan(
             u1_doc,
@@ -460,7 +457,8 @@ class CafeFekrSocialSystemTests(unittest.TestCase):
         clan_id = clan["clan_id"]
         self.assertEqual(clan["tag"], "#CAFE1")
         u1_after = game_database.users_manager.read_user("u1")
-        self.assertEqual(u1_after["coin"], 500 - CLAN_CREATION_COIN_COST)
+        self.assertEqual(u1_after["coin"], 500)
+        self.assertEqual(u1_after.get("created_clan_id"), clan_id)
 
         # Duplicate clan tag or name prevented
         u2_doc = game_database.users_manager.read_user("u2")
@@ -488,6 +486,13 @@ class CafeFekrSocialSystemTests(unittest.TestCase):
         transfer_clan_leadership(u1_after, "u2")
         self.assertEqual(game_database.clans_manager.read_clan(clan_id)["leader_id"], "u2")
         self.assertEqual(game_database.clans_manager.get_user_membership("u1")["role"], "co_leader")
+
+        # Even if u1 leaves the clan later, u1 cannot create a 2nd clan (1 clan per player limit)
+        leave_clan(u1_after)
+        u1_reloaded = game_database.users_manager.read_user("u1")
+        with self.assertRaises(FakeHTTPException):
+            create_clan(u1_reloaded, name="کلن دوم عرفان", tag="#SEC2")
+        join_or_request_clan(u1_reloaded, clan_id)
 
         # Atomic capacity check
         game_database.clans_manager.clans.update_one({"_id": clan_id}, {"$set": {"max_members": 3}})
