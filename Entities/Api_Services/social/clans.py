@@ -113,7 +113,6 @@ def create_clan(
     min_level: int = 1,
 ) -> dict:
     uid = str(user_data["_id"])
-    check_rate_limit(uid, "clan_create")
 
     if game_database.clans_manager.get_user_membership(uid) is not None:
         raise Network_Exeptions.raise409(details="شما در حال حاضر عضو یک کلن هستید. ابتدا از کلن فعلی خارج شوید.")
@@ -135,6 +134,8 @@ def create_clan(
         raise Network_Exeptions.raise409(
             details="هر بازیکن فقط می‌تواند یک کلن بسازد."
         )
+
+    check_rate_limit(uid, "clan_create")
 
     clan_doc = game_database.clans_manager.create_clan(
         leader_id=uid,

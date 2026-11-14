@@ -55,13 +55,18 @@ def validate_safe_name(name: str, min_len: int = 3, max_len: int = 28, field_lab
     return clean
 
 
+def _normalize_digits(text: str) -> str:
+    trans = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
+    return str(text or "").translate(trans)
+
+
 def validate_clan_tag(tag: str) -> str:
-    raw = str(tag or "").strip().upper()
+    raw = _normalize_digits(str(tag or "").strip()).upper()
     if raw.startswith("#"):
         raw = raw[1:].strip()
-    raw = re.sub(r"[^A-Z0-9]", "", raw)
-    if len(raw) < 3 or len(raw) > 8:
-        raise Network_Exeptions.raise422(details="تگ کلن باید بین ۳ تا ۸ حرف انگلیسی یا عدد باشد.")
+    raw = re.sub(r"[^A-Z0-9\u0600-\u06FF]", "", raw)
+    if len(raw) < 2 or len(raw) > 10:
+        raise Network_Exeptions.raise422(details="تگ کلن باید بین ۲ تا ۱۰ حرف یا عدد باشد.")
     return "#" + raw
 
 

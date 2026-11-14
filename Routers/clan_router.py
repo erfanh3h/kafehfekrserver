@@ -71,17 +71,29 @@ async def create_clan_endpoint(
     user=Depends(get_current_user),
 ):
     params = await extract_request_data(request)
+    try:
+        emb = int(params.get("emblem_id") or 1)
+    except (TypeError, ValueError):
+        emb = 1
+    try:
+        m_score = int(params.get("min_score") or 0)
+    except (TypeError, ValueError):
+        m_score = 0
+    try:
+        m_lvl = int(params.get("min_level") or 1)
+    except (TypeError, ValueError):
+        m_lvl = 1
     return {
         "result": clans.create_clan(
             user_data=user,
-            name=str(params.get("name", "")),
-            tag=str(params.get("tag", "")),
-            emblem_id=int(params.get("emblem_id", 1) or 1),
-            description=str(params.get("description", "")),
-            language=str(params.get("language", "fa")),
-            join_type=str(params.get("join_type", "open")),
-            min_score=int(params.get("min_score", 0) or 0),
-            min_level=int(params.get("min_level", 1) or 1),
+            name=str(params.get("name") or ""),
+            tag=str(params.get("tag") or ""),
+            emblem_id=emb,
+            description=str(params.get("description") or ""),
+            language=str(params.get("language") or "fa"),
+            join_type=str(params.get("join_type") or "open"),
+            min_score=m_score,
+            min_level=m_lvl,
         )
     }
 
