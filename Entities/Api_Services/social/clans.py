@@ -267,16 +267,45 @@ def get_clan_details(viewer_id: str, clan_id: str) -> dict:
             for a in game_database.clans_manager.get_audit_logs(cid, limit=25)
         ]
 
+    open_challenges_out = []
+    if in_this_clan:
+        now = datetime.now()
+        raw_chals = list(
+            game_database.clans_manager.challenges.find({"clan_id": cid, "status": "open"}).sort("created_at", -1)
+        )
+        for ch in raw_chals:
+            exp = ch.get("expires_at")
+            if isinstance(exp, datetime) and exp < now:
+                continue
+            gt = str(ch.get("game_type", "Ludo"))
+            open_challenges_out.append(
+                {
+                    "challenge_id": str(ch.get("_id", "")),
+                    "clan_id": cid,
+                    "creator_id": str(ch.get("creator_id", "")),
+                    "creator_name": str(ch.get("creator_name", "بازیکن")),
+                    "game_type": gt,
+                    "game_title_fa": _get_game_title_fa(gt),
+                    "player_count": int(ch.get("player_count", 2) or 2),
+                    "status": str(ch.get("status", "open")),
+                    "participants": list(ch.get("participants", []) or []),
+                    "created_at": serialize_dt(ch.get("created_at")),
+                    "expires_at": serialize_dt(exp),
+                }
+            )
+
     serialized_clan = _serialize_clan(clan_doc, my_mem if in_this_clan else None)
     serialized_clan["members"] = members_out
     serialized_clan["pending_join_requests"] = join_requests_out
     serialized_clan["audit_logs"] = audit_logs_out
+    serialized_clan["open_challenges"] = open_challenges_out
     return {
         "clan": serialized_clan,
         "members": members_out,
         "join_requests": join_requests_out,
         "pending_join_requests": join_requests_out,
         "audit_logs": audit_logs_out,
+        "open_challenges": open_challenges_out,
         "invitations": [],
     }
 
@@ -601,6 +630,41 @@ def update_clan_settings(actor_data: dict, updates: dict) -> dict:
     return _serialize_clan(updated, actor_mem)
 
 
+_GAME_TITLES_FA = {
+    "TicTacToe": "تیک تاک تو",
+    "RPC": "سنگ کاغذ قیچی",
+    "DotBox": "نقطه خط",
+    "MNumbers": "کشف اعداد",
+    "MSweeper": "مین یاب",
+    "FekrBekr": "فکر بکر",
+    "Yatzy": "یاتزی",
+    "Pentago": "پنتاگو",
+    "FourInRow": "دوز چهارتایی",
+    "Sudoku": "سودوکو",
+    "BattleShip": "نبرد کشتی",
+    "BoxFour": "چهارطرفه",
+    "Yinsh": "یینش",
+    "Chess": "شطرنج",
+    "Checkers": "چکرز",
+    "Othello": "اتللو",
+    "Mill": "دوز نه تایی",
+    "Ludo": "منچ",
+    "BackGammon": "تخته نرد",
+    "Risk": "ریسک استرایک",
+    "Uno": "اونو",
+    "Quiz": "کوییز",
+    "Quoridor": "کوریدور",
+    "Coup": "کودتا",
+    "Monopoly": "مونوپولی",
+}
+
+_MULTI_PLAYER_GAMES = {"Ludo", "Risk", "Uno", "Quiz", "Coup", "Monopoly"}
+
+
+def _get_game_title_fa(game_type: str) -> str:
+    return _GAME_TITLES_FA.get(str(game_type or ""), str(game_type or ""))
+
+
 def create_clan_friendly_challenge(actor_data: dict, game_type: str = "Ludo", player_count: int = 2) -> dict:
     aid = str(actor_data["_id"])
     mem = game_database.clans_manager.get_user_membership(aid)
@@ -609,27 +673,157 @@ def create_clan_friendly_challenge(actor_data: dict, game_type: str = "Ludo", pl
     cid = str(mem["clan_id"])
     now = datetime.now()
     ch_id = f"cchal_{create_random_name()}"
+    gt = str(game_type or "Ludo").strip() or "Ludo"
+    p_count = max(2, min(int(player_count or 2), 4))
+    if gt not in _MULTI_PLAYER_GAMES:
+        p_count = 2
+    creator_name = str(actor_data.get("username", "بازیکن"))
+    participants = [
+        {
+            "user_id": aid,
+            "username": creator_name,
+            "image": int(actor_data.get("image", 0) or 0),
+        }
+    ]
     doc = {
         "_id": ch_id,
         "clan_id": cid,
         "creator_id": aid,
-        "creator_name": str(actor_data.get("username", "بازیکن")),
-        "game_type": str(game_type or "Ludo"),
-        "player_count": max(2, min(int(player_count or 2), 4)),
+        "creator_name": creator_name,
+        "game_type": gt,
+        "player_count": p_count,
         "status": "open",
+        "participants": participants,
         "created_at": now,
-        "expires_at": now + timedelta(minutes=10),
+        "expires_at": now + timedelta(minutes=15),
     }
     game_database.clans_manager.challenges.insert_one(doc)
+    game_fa = _get_game_title_fa(gt)
     _post_clan_system_message(
         cid,
-        f"⚔️ {actor_data.get('username', 'بازیکن')} یک چالش دوستانه «{game_type}» در کلن ایجاد کرد!",
-        metadata={"challenge_id": ch_id, "game_type": game_type, "player_count": doc["player_count"]},
+        f"⚔️ {creator_name} یک چالش دوستانه «{game_fa}» ({p_count} نفره) در کلن ایجاد کرد!",
+        metadata={
+            "challenge_id": ch_id,
+            "creator_id": aid,
+            "creator_name": creator_name,
+            "game_type": gt,
+            "game_title_fa": game_fa,
+            "player_count": p_count,
+            "status": "open",
+            "participants": participants,
+        },
     )
     return {
         "challenge_id": ch_id,
         "clan_id": cid,
-        "game_type": doc["game_type"],
-        "player_count": doc["player_count"],
+        "creator_id": aid,
+        "creator_name": creator_name,
+        "game_type": gt,
+        "game_title_fa": game_fa,
+        "player_count": p_count,
         "status": "open",
+        "participants": participants,
     }
+
+
+def join_clan_friendly_challenge(actor_data: dict, challenge_id: str) -> dict:
+    aid = str(actor_data["_id"])
+    ch_id = str(challenge_id or "").strip()
+    mem = game_database.clans_manager.get_user_membership(aid)
+    if not mem:
+        raise Network_Exeptions.raise403(details="ابتدا وارد یک کلن شوید.")
+    cid = str(mem["clan_id"])
+    ch = game_database.clans_manager.challenges.find_one({"_id": ch_id})
+    if not ch or str(ch.get("clan_id", "")) != cid:
+        raise Network_Exeptions.raise404(details="چالش دوستانه مورد نظر یافت نشد.")
+    if str(ch.get("status", "open")) != "open":
+        raise Network_Exeptions.raise409(details="این چالش بسته شده یا قبلاً شروع شده است.")
+    exp = ch.get("expires_at")
+    if isinstance(exp, datetime) and exp < datetime.now():
+        game_database.clans_manager.challenges.update_one({"_id": ch_id}, {"$set": {"status": "closed"}})
+        raise Network_Exeptions.raise409(details="مهلت این چالش به پایان رسیده است.")
+
+    participants = list(ch.get("participants", []) or [])
+    p_count = max(2, min(int(ch.get("player_count", 2) or 2), 4))
+    if not any(str(p.get("user_id", "")) == aid for p in participants):
+        if len(participants) >= p_count:
+            raise Network_Exeptions.raise422(details="ظرفیت این چالش تکمیل شده است.")
+        participants.append(
+            {
+                "user_id": aid,
+                "username": str(actor_data.get("username", "بازیکن")),
+                "image": int(actor_data.get("image", 0) or 0),
+            }
+        )
+        game_database.clans_manager.challenges.update_one(
+            {"_id": ch_id},
+            {"$set": {"participants": participants, "updated_at": datetime.now()}},
+        )
+        try:
+            game_database.clan_messages_manager.collection.update_many(
+                {"clan_id": cid, "metadata.challenge_id": ch_id},
+                {"$set": {"metadata.participants": participants}},
+            )
+        except Exception:
+            pass
+
+    gt = str(ch.get("game_type", "Ludo"))
+    return {
+        "challenge_id": ch_id,
+        "clan_id": cid,
+        "creator_id": str(ch.get("creator_id", "")),
+        "creator_name": str(ch.get("creator_name", "بازیکن")),
+        "game_type": gt,
+        "game_title_fa": _get_game_title_fa(gt),
+        "player_count": p_count,
+        "status": "open",
+        "participants": participants,
+        "is_full": len(participants) >= p_count,
+    }
+
+
+def close_clan_friendly_challenge(actor_data: dict, challenge_id: str) -> dict:
+    aid = str(actor_data["_id"])
+    ch_id = str(challenge_id or "").strip()
+    if not ch_id:
+        raise Network_Exeptions.raise422(details="شناسه چالش الزامی است.")
+    mem = game_database.clans_manager.get_user_membership(aid)
+    if not mem:
+        raise Network_Exeptions.raise403(details="ابتدا وارد یک کلن شوید.")
+    cid = str(mem["clan_id"])
+    ch = game_database.clans_manager.challenges.find_one({"_id": ch_id})
+    if not ch or str(ch.get("clan_id", "")) != cid:
+        raise Network_Exeptions.raise404(details="چالش دوستانه مورد نظر یافت نشد.")
+
+    actor_rank = CLAN_ROLE_RANK.get(str(mem.get("role", "member")), 1)
+    if aid != str(ch.get("creator_id", "")) and actor_rank < CLAN_ROLE_RANK["co_leader"]:
+        raise Network_Exeptions.raise403(details="فقط سازنده چالش یا مدیران کلن می‌توانند چالش را ببندند.")
+
+    cur_status = str(ch.get("status", "open"))
+    if cur_status == "started":
+        raise Network_Exeptions.raise409(details="این چالش قبلاً شروع شده است و امکان بستن آن وجود ندارد.")
+    if cur_status == "closed":
+        return {"challenge_id": ch_id, "clan_id": cid, "status": "closed"}
+
+    now = datetime.now()
+    game_database.clans_manager.challenges.update_one(
+        {"_id": ch_id},
+        {"$set": {"status": "closed", "closed_by": aid, "closed_at": now}},
+    )
+    gt = str(ch.get("game_type", "Ludo"))
+    game_fa = _get_game_title_fa(gt)
+    p_count = int(ch.get("player_count", 2) or 2)
+    actor_name = str(actor_data.get("username", "بازیکن"))
+    try:
+        game_database.clan_messages_manager.collection.update_many(
+            {"clan_id": cid, "metadata.challenge_id": ch_id},
+            {
+                "$set": {
+                    "metadata.status": "closed",
+                    "text": f"🚫 چالش دوستانه «{game_fa}» ({p_count} نفره) توسط {actor_name} بسته شد.",
+                }
+            },
+        )
+    except Exception:
+        pass
+    return {"challenge_id": ch_id, "clan_id": cid, "status": "closed"}

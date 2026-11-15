@@ -224,6 +224,30 @@ async def create_clan_challenge_endpoint(
     }
 
 
+@router.post("/friendly-challenge/close")
+@router.post("/challenge/close")
+async def close_clan_challenge_endpoint(
+    request: Request,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    params = await extract_request_data(request)
+    ch_id = str(params.get("challenge_id", "")).strip()
+    return {"result": clans.close_clan_friendly_challenge(actor_data=user, challenge_id=ch_id)}
+
+
+@router.post("/friendly-challenge/join")
+@router.post("/challenge/join")
+async def join_clan_challenge_endpoint(
+    request: Request,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    params = await extract_request_data(request)
+    ch_id = str(params.get("challenge_id", "")).strip()
+    return {"result": clans.join_clan_friendly_challenge(actor_data=user, challenge_id=ch_id)}
+
+
 @router.get("/details/{clan_id}")
 @router.get("/{clan_id}")
 async def get_clan_details_endpoint(

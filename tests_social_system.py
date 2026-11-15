@@ -59,7 +59,18 @@ def _match_query(doc, query):
             if not all(_match_query(doc, sub) for sub in v):
                 return False
         else:
-            if not _match_condition(doc.get(k), v, doc, k):
+            val = doc.get(k)
+            if "." in k and val is None:
+                parts = k.split(".")
+                cur = doc
+                for p in parts:
+                    if isinstance(cur, dict) and p in cur:
+                        cur = cur[p]
+                    else:
+                        cur = None
+                        break
+                val = cur
+            if not _match_condition(val, v, doc, k):
                 return False
     return True
 
@@ -637,6 +648,60 @@ class CafeFekrSocialSystemTests(unittest.TestCase):
 
         lb_friends = get_social_leaderboard("u1", board_type="friends")
         self.assertEqual(len(lb_friends), 2)
+
+    # 11. Clan Friendly Challenge: Any Game, 2-4 Player Count, & Closable Before Start
+    def test_11_clan_friendly_challenge_lifecycle(self):
+        from Entities.Api_Services.social.clans import (
+            create_clan_friendly_challenge,
+            join_clan_friendly_challenge,
+            close_clan_friendly_challenge,
+            get_clan_details,
+        )
+        from Entities.Api_Services.social.messages import get_clan_chat_history
+
+        u1_doc = game_database.users_manager.read_user("u1")
+        u2_doc = game_database.users_manager.read_user("u2")
+        u3_doc = game_database.users_manager.read_user("u3")
+        clan = create_clan(u1_doc, name="ChallengeClub", tag="#CHAL")
+        cid = clan["clan_id"]
+        join_or_request_clan(u2_doc, cid)
+        join_or_request_clan(u3_doc, cid)
+
+        # Create 4-player Monopoly challenge -> includes creator_id, status='open', player_count=4
+        ch = create_clan_friendly_challenge(u2_doc, game_type="Monopoly", player_count=4)
+        self.assertEqual(ch["creator_id"], "u2")
+        self.assertEqual(ch["player_count"], 4)
+        self.assertEqual(ch["status"], "open")
+
+        # Non-multiplayer game clamps to 2 players
+        ch_chess = create_clan_friendly_challenge(u2_doc, game_type="Chess", player_count=4)
+        self.assertEqual(ch_chess["player_count"], 2)
+
+        # Visible in open_challenges & clan chat metadata has creator_id & status
+        details = get_clan_details("u1", cid)
+        self.assertEqual(len(details["open_challenges"]), 2)
+        msgs = get_clan_chat_history("u1", cid)
+        chal_msgs = [m for m in msgs if isinstance(m.get("metadata"), dict) and m["metadata"].get("challenge_id") == ch["challenge_id"]]
+        self.assertEqual(len(chal_msgs), 1)
+        self.assertEqual(chal_msgs[0]["metadata"]["creator_id"], "u2")
+        self.assertEqual(chal_msgs[0]["metadata"]["status"], "open")
+
+        # Another member joins
+        joined = join_clan_friendly_challenge(u3_doc, ch["challenge_id"])
+        self.assertEqual(len(joined["participants"]), 2)
+
+        # Non-creator regular member u3 cannot close u2's challenge
+        with self.assertRaises(FakeHTTPException):
+            close_clan_friendly_challenge(u3_doc, ch["challenge_id"])
+
+        # Creator u2 closes challenge before start -> status becomes closed & disappears from open_challenges
+        closed = close_clan_friendly_challenge(u2_doc, ch["challenge_id"])
+        self.assertEqual(closed["status"], "closed")
+        details_after = get_clan_details("u1", cid)
+        self.assertFalse(any(c["challenge_id"] == ch["challenge_id"] for c in details_after["open_challenges"]))
+        msgs_after = get_clan_chat_history("u1", cid)
+        chal_msgs_after = [m for m in msgs_after if isinstance(m.get("metadata"), dict) and m["metadata"].get("challenge_id") == ch["challenge_id"]]
+        self.assertEqual(chal_msgs_after[0]["metadata"]["status"], "closed")
 
 
 if __name__ == "__main__":
