@@ -703,6 +703,89 @@ class CafeFekrSocialSystemTests(unittest.TestCase):
         chal_msgs_after = [m for m in msgs_after if isinstance(m.get("metadata"), dict) and m["metadata"].get("challenge_id") == ch["challenge_id"]]
         self.assertEqual(chal_msgs_after[0]["metadata"]["status"], "closed")
 
+    # 12. Live Spectator Discovery API: Filtering, Hidden-Game Exclusion, Block & Privacy Enforcement
+    def test_12_live_spectator_discovery_filtering_and_privacy(self):
+        from Entities.Api_Services.social.spectator import list_live_spectatable_games
+
+        now = datetime.utcnow()
+        # 1. Active Ludo match between u2 and u3 (spectatable)
+        game_database.base_db["game_play_history"].insert_one({
+            "_id": "live_ludo_1",
+            "user_ids": ["u2", "u3"],
+            "game_types": ["Ludo"],
+            "current_game_type": "Ludo",
+            "start_date": now - timedelta(minutes=4),
+            "is_finished": False,
+            "is_running": True,
+            "allow_spectators": True,
+            "spectator_count": 3,
+        })
+        # 2. Active Uno match (hidden cards -> must NEVER be listed as spectatable)
+        game_database.base_db["game_play_history"].insert_one({
+            "_id": "live_uno_hidden",
+            "user_ids": ["u2", "u4"],
+            "game_types": ["Uno"],
+            "current_game_type": "Uno",
+            "start_date": now - timedelta(minutes=2),
+            "is_finished": False,
+            "is_running": True,
+            "allow_spectators": True,
+            "spectator_count": 0,
+        })
+        # 3. Finished Chess match (must not appear in live games)
+        game_database.base_db["game_play_history"].insert_one({
+            "_id": "finished_chess_1",
+            "user_ids": ["u2", "u3"],
+            "game_types": ["Chess"],
+            "current_game_type": "Chess",
+            "start_date": now - timedelta(minutes=25),
+            "end_date": now - timedelta(minutes=5),
+            "is_finished": True,
+            "is_running": False,
+            "allow_spectators": False,
+            "spectator_count": 0,
+        })
+
+        # u1 queries all live spectatable games -> only live_ludo_1 is returned
+        res_all = list_live_spectatable_games("u1", visibility_filter="all")
+        self.assertEqual(res_all["total"], 1)
+        self.assertEqual(res_all["games"][0]["game_id"], "live_ludo_1")
+        self.assertEqual(res_all["games"][0]["game_type"], "Ludo")
+        self.assertEqual(res_all["games"][0]["spectator_count"], 3)
+        self.assertEqual(len(res_all["games"][0]["players"]), 2)
+
+        # Filter by game_type
+        res_chess = list_live_spectatable_games("u1", game_type="Chess")
+        self.assertEqual(res_chess["total"], 0)
+        res_ludo = list_live_spectatable_games("u1", game_type="Ludo")
+        self.assertEqual(res_ludo["total"], 1)
+
+        # Filter by friends: u1 is not friends with u2 or u3 yet -> 0 results
+        res_friends_empty = list_live_spectatable_games("u1", visibility_filter="friends")
+        self.assertEqual(res_friends_empty["total"], 0)
+
+        # Make u1 and u2 friends -> now appears in friends filter
+        req = send_friend_request("u1", "u2")
+        respond_friend_request("u2", req["request_id"], "accept")
+        res_friends_ok = list_live_spectatable_games("u1", visibility_filter="friends")
+        self.assertEqual(res_friends_ok["total"], 1)
+
+        # Privacy enforcement: if BOTH u2 and u3 set allow_spectators='none', match is hidden from spectators
+        update_my_profile_customization("u2", privacy={"allow_spectators": "none"})
+        update_my_profile_customization("u3", privacy={"allow_spectators": "none"})
+        res_priv_none = list_live_spectatable_games("u1", visibility_filter="all")
+        self.assertEqual(res_priv_none["total"], 0)
+
+        # Restore u2 and u3 privacy to 'everyone' -> visible again
+        update_my_profile_customization("u2", privacy={"allow_spectators": "everyone"})
+        update_my_profile_customization("u3", privacy={"allow_spectators": "everyone"})
+        self.assertEqual(list_live_spectatable_games("u1", visibility_filter="all")["total"], 1)
+
+        # Blocking enforcement: if u3 blocks u1, u1 cannot discover the match
+        block_player("u3", "u1", "no spectating")
+        self.assertEqual(list_live_spectatable_games("u1", visibility_filter="all")["total"], 0)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

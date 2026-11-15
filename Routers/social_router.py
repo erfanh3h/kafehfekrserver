@@ -290,3 +290,32 @@ async def report_endpoint(
             details=str(params.get("details", "")),
         )
     }
+
+
+@router.get("/spectator/live-games")
+@router.get("/live-games")
+async def get_social_live_games_endpoint(
+    game_type: str = "",
+    player_id: str = "",
+    clan_id: str = "",
+    visibility: str = "all",
+    filter: str = "",
+    page: int = 1,
+    limit: int = 20,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    from Entities.Api_Services.social import spectator
+    effective_filter = filter if filter else visibility
+    return {
+        "result": spectator.list_live_spectatable_games(
+            viewer_id=str(user["_id"]),
+            game_type=game_type,
+            player_id=player_id,
+            clan_id=clan_id,
+            visibility_filter=effective_filter,
+            page=page,
+            limit=limit,
+        )
+    }
+

@@ -186,11 +186,16 @@ class UsersCollectionManager:
         if status_message is not None:
             upd["status_message"] = str(status_message).strip()[:120]
         if isinstance(privacy, dict):
+            show_game = bool(privacy.get("show_current_game", True))
+            raw_spec = str(privacy.get("allow_spectators", "everyone" if show_game else "none")).strip().lower()
+            if raw_spec not in ("everyone", "friends", "clan", "none"):
+                raw_spec = "everyone" if show_game else "none"
             clean_priv = {
                 "allow_friend_requests": bool(privacy.get("allow_friend_requests", True)),
                 "allow_dms": str(privacy.get("allow_dms", "everyone")),  # everyone | friends | none
                 "show_last_seen": bool(privacy.get("show_last_seen", True)),
-                "show_current_game": bool(privacy.get("show_current_game", True)),
+                "show_current_game": show_game,
+                "allow_spectators": raw_spec,  # everyone | friends | clan | none
                 "show_match_history": bool(privacy.get("show_match_history", True)),
             }
             upd["privacy"] = clean_priv
