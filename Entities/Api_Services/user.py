@@ -125,18 +125,35 @@ def user_game_histories(user_id):
         s_date = g.get('start_date')
         f_date = g.get('finish_date')
 
+        # Convenient top-level opponent extraction
+        opp_name = "حریف"
+        opp_img = 0
+        opp_id = ""
+        for u in users_info:
+            if str(u.get("user_id", "")) != user_id_str:
+                opp_name = str(u.get("username", u.get("name", "حریف")))
+                opp_img = int(u.get("image", 0))
+                opp_id = str(u.get("user_id", ""))
+                break
+        first_game = g.get("game_types", ["بازی"])[0] if g.get("game_types") else "بازی"
+
         result.append({
             "_id": g_id,
             "game_play_id": g_id,
             "game_types": g.get("game_types", []),
+            "game_type": first_game,
             "game_score_type": g.get("game_score_type", "Rank"),
             "is_finished": bool(g.get("is_finished", False)),
             "start_date": s_date.isoformat() if hasattr(s_date, 'isoformat') else str(s_date or ''),
             "finish_date": f_date.isoformat() if hasattr(f_date, 'isoformat') else str(f_date or ''),
             "winner_id": winner_id_str,
+            "winner": winner_id_str,
             "winner_list": g.get("winner_list", []),
             "user_scores": user_scores,
             "users_info": users_info,
+            "opponent_name": opp_name,
+            "opponent_image": opp_img,
+            "opponent_id": opp_id,
             "rounds": formatted_rounds,
             "my_result": my_result,
         })
@@ -159,7 +176,17 @@ def get_ranking_users_by_win():
     for h in history_data:
         uid = str(h['_id'])
         if uid in by_win_map:
-            raw_data = {'user_data': by_win_map[uid], 'win': h.get('win_rank', 0)}
+            u_info = by_win_map[uid]
+            raw_data = {
+                '_id': uid,
+                'user_id': uid,
+                'username': u_info.get('username', 'بازیکن'),
+                'name': u_info.get('username', 'بازیکن'),
+                'image': int(u_info.get('image', 0)),
+                'score': int(u_info.get('score', 0)),
+                'win': int(h.get('win_rank', 0)),
+                'user_data': u_info
+            }
             result.append(raw_data)
     return result
 

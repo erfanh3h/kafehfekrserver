@@ -55,7 +55,7 @@ def get_social_leaderboard(
         return out
 
     if bt == "friends":
-        f_ids = list(set(game_database.friends_manager.get_friend_ids(vid) + [vid]))
+        f_ids = list(set(game_database.friends_manager.get_friend_ids(vid)))
         users_list = game_database.users_manager.read_users(f_ids)
         pres_map = game_database.presence_manager.get_bulk_presence(f_ids)
         users_list.sort(key=lambda u: int(u.get("score", 0) or 0), reverse=True)

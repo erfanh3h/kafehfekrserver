@@ -69,7 +69,7 @@ class UsersCollectionManager:
     def read_ranking_users_by_win(self, users_id: list):
         clean_ids = [uid for uid in users_id if not (str(uid).startswith("bot_") or str(uid).startswith("test_bot") or str(uid) == "3goBRU")]
         query = {'_id': {'$in': clean_ids}}
-        selection_items = {"username": 1, "image": 1, "join_date": 1}
+        selection_items = {"username": 1, "image": 1, "score": 1, "xp": 1, "level": 1, "join_date": 1}
         data = list(self.collection.find(query, selection_items))
         return data
 
