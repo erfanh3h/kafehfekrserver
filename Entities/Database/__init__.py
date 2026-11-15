@@ -17,7 +17,6 @@ from Entities.Database.game_play_history_collection import GamePlayHistoryCollec
 from Entities.Database.purchases_collection import PurchasesCollectionManager
 from Entities.Database.user_history_collection import UserHistoryCollectionManager
 from Entities.Database.users_collection import UsersCollectionManager
-from Entities.Database.admin_collection import AdminCollectionManager
 
 
 class DataBaseManager:
@@ -56,7 +55,6 @@ class DataBaseManager:
         self.invitations_manager = InvitationsCollectionManager(self.base_db["game_invitations"])
         self.reports_manager = ReportsCollectionManager(self.base_db["social_reports"])
         self.presence_manager = PresenceCollectionManager(self.base_db["user_presence"])
-        self.admin_manager = AdminCollectionManager(self.base_db["admins"])
 
 
     def check_create_collections(self):
@@ -68,7 +66,6 @@ class DataBaseManager:
                                                           "TicTacToe", "Normal", "1")
             self.purchase_manager.create_purchase("1", "1", "bazaar", "t")
             self.config_manager.create_config()
-        self.admin_manager.ensure_default_superadmin()
 
 
 game_database = DataBaseManager()
