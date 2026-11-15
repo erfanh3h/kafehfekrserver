@@ -93,7 +93,9 @@ def list_live_spectatable_games(
     if scope == "clan" and not req_clan_id and my_clan_id:
         req_clan_id = my_clan_id
 
-    col = getattr(game_database.game_play_history_manager, "collection", None) or game_database.base_db["game_play_history"]
+    col = getattr(game_database.game_play_history_manager, "collection", None)
+    if col is None:
+        col = game_database.base_db["game_play_history"]
     cursor = col.find({"is_finished": {"$ne": True}}).sort([("start_date", pymongo.DESCENDING)]).limit(200)
 
     now = datetime.utcnow()
