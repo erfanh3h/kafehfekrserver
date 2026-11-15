@@ -1,6 +1,6 @@
 # Cafe Fekr — REST API Server (`kafehfekrserver`)
 
-The **REST API, authentication, social community, and player economy service** for **Cafe Fekr (کافه فکر)**. It manages user registration via SMS OTP (IPPanel), profile personalization, friend networks, clan governance and chat, direct messaging, in-game notifications, client app version gates, store transactions (CafeBazaar & Myket), global leaderboards, automated MongoDB backups, and administrative operations.
+The **REST API, authentication, social community, player economy, and match discovery service** for **Cafe Fekr (کافه فکر)**. It manages user registration via SMS OTP (IPPanel), profile personalization, friend networks, clan governance and friendly challenges, direct messaging, in-game notifications, **live spectatable match discovery**, store transactions (CafeBazaar & Myket), global leaderboards, automated MongoDB backups, and administrative operations.
 
 ---
 
@@ -15,7 +15,7 @@ The **REST API, authentication, social community, and player economy service** f
 | **SMS Gateway** | IPPanel API (Pattern: `ccnmmdqhf3hb0h7`, Originator: `+983000505`) with bot account bypass |
 | **Database** | MongoDB (`KafehFekrDB`) |
 | **Companion Realtime Service** | `kafehfekrbackend` (Port `5000`) |
-| **Mounted Routers** | `auth`, `user`, `social`, `clans`, `messages`, `notifications`, `general`, `admin` |
+| **Mounted Routers** | `auth`, `user`, `social`, `clans`, `messages`, `notifications`, `spectator`, `general`, `admin` |
 
 ---
 
@@ -40,7 +40,7 @@ kafehfekrserver/
 │   │   ├── user.py             # Profile data, coin balance, leaderboards, IAP validation
 │   │   ├── __init__.py         # Token extractor, get_current_user dependency, app config
 │   │   └── social/             # Social subsystem business logic
-│   │       ├── clans.py        # Clan creation, directory search, roster, role governance
+│   │       ├── clans.py        # Clan creation, directory, roster, friendly challenges lifecycle
 │   │       ├── friends.py      # Friend requests, accept/reject, suggestions, blocks
 │   │       ├── invitations.py  # Match and lobby invitation routing
 │   │       ├── leaderboards.py # Global, game-specific, and clan leaderboards
@@ -48,18 +48,19 @@ kafehfekrserver/
 │   │       ├── moderation.py   # Player blocking and reporting
 │   │       ├── notifications.py# Notification listing and preferences
 │   │       ├── profiles.py     # Public player profile inspection & cosmetic updates
-│   │       └── security.py     # Social input validation and rate limiting
+│   │       ├── security.py     # Social input validation and rate limiting
+│   │       └── spectator.py    # Live games discovery, query filters, and privacy enforcement
 │   ├── Database/               # MongoDB collections and automated backup logic
 │   │   ├── backup.py           # Hourly automated DB backup scheduler
 │   │   ├── config_collection.py# System configuration (versioning, queue toggles)
 │   │   ├── game_history_collection.py      # Individual round records
 │   │   ├── game_play_history_collection.py # Match series records
 │   │   ├── purchases_collection.py         # IAP transaction history
-│   │   ├── users_collection.py             # User profile, wallet, and session data
+│   │   ├── users_collection.py             # User profile, wallet, session, privacy flags
 │   │   ├── user_history_collection.py      # Aggregated per-game user stats
 │   │   ├── __init__.py         # Database connection and collection initialization
 │   │   └── social/             # Social collections
-│   │       ├── clans_collection.py         # Clans, memberships, join requests, audit logs
+│   │       ├── clans_collection.py         # Clans, memberships, join requests, challenges
 │   │       ├── clan_messages_collection.py # Clan chat logs
 │   │       ├── direct_messages_collection.py # Private player-to-player DMs
 │   │       ├── friends_collection.py       # Friendships, requests, blocks
@@ -77,11 +78,12 @@ kafehfekrserver/
 └── Routers/                    # FastAPI route modules
     ├── admin_router.py         # Administrative endpoints (/admin/*)
     ├── auth_router.py          # Authentication and login endpoints (/enter, /code, /complete-data)
-    ├── clan_router.py          # Clan governance and membership (/clans/*)
+    ├── clan_router.py          # Clan governance, roster, and challenges (/clans/*)
     ├── general_router.py       # Configuration, leaderboard, store, and reward endpoints
     ├── messaging_router.py     # Direct messages and clan chat history (/messages/*)
     ├── notification_router.py  # In-game notification management (/notifications/*)
     ├── social_router.py        # Friends, profile customization, blocks, reports (/social/*)
+    ├── spectator_router.py     # Live games discovery & match summaries (/spectator/*)
     └── user_router.py          # User profile, match history, and cosmetic update endpoints
 ```
 
@@ -113,7 +115,17 @@ kafehfekrserver/
 
 ---
 
-### 3.3 Social & Friends Endpoints (`Routers/social_router.py`)
+### 3.3 Live Spectator Discovery Endpoints (`Routers/spectator_router.py` & `social_router.py`)
+
+| Method | Endpoint | Auth | Parameters | Description |
+|---|---|---|---|---|
+| `GET` | `/spectator/live-games` | JWT | `game_type`, `player_id`, `clan_id`, `visibility` (`all`/`friends`/`clan`), `page`, `limit` | Returns list of currently active watchable matches, respecting mutual blocks and player privacy. |
+| `GET` | `/spectator/live-games/{game_id}` | JWT | `game_id` (Path) | Inspects watchability and returns sanitized match summary (game type, current players, spectator count). |
+| `GET` | `/social/live-games` | JWT | (Same as above) | Alias under social prefix for Godot client compatibility. |
+
+---
+
+### 3.4 Social & Friends Endpoints (`Routers/social_router.py`)
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
@@ -126,19 +138,19 @@ kafehfekrserver/
 | `POST` | `/social/friends/respond` | JWT | `request_id`, `action` (`accept`/`reject`) | Responds to an incoming friend request. |
 | `POST` | `/social/friends/remove` | JWT | `friend_id` (JSON/Form) | Removes a player from friends. |
 | `GET` | `/social/profile/{target_id}` | JWT | `target_id` (Path) | Detailed public profile with level, frame, badge, title, clan, and stats. |
-| `POST` | `/social/profile/customize` | JWT | `profile_frame`, `profile_title`, `profile_badge`, `status_message`, `privacy` | Updates player cosmetics and social privacy flags (`allow_friend_requests`, `allow_dms`, `show_last_seen`, `show_current_game`, `show_match_history`). |
+| `POST` | `/social/profile/customize` | JWT | `profile_frame`, `profile_title`, `profile_badge`, `status_message`, `privacy` | Updates player cosmetics and social privacy flags (`allow_friend_requests`, `allow_dms`, `show_last_seen`, `show_current_game`, `show_match_history`, `allow_spectators`). |
 | `GET` | `/social/leaderboards` | JWT | `board_type`, `game_type`, `clan_id`, `limit` | Leaderboards for `global_score`, `game_score`, and `clan_score`. |
 | `GET` | `/social/invitations` | JWT | Header | Lists active incoming game and lobby invitations. |
 | `POST` | `/social/invitations/send` | JWT | `to_user_id`, `game_type`, `invite_mode`, `lobby_id`, `lobby_password`, `player_count` | Sends an invitation to an open lobby or direct 1v1 match. |
 | `POST` | `/social/invitations/respond`| JWT | `invite_id`, `action` (`accept`/`reject`) | Accepts or rejects a game invitation. |
 | `GET` | `/social/blocks` | JWT | Header | Lists players blocked by the user. |
-| `POST` | `/social/block` | JWT | `target_user_id`, `reason` | Blocks a player (prevents DMs, invites, and matching). |
+| `POST` | `/social/block` | JWT | `target_user_id`, `reason` | Blocks a player (prevents DMs, invites, matching, and spectating). |
 | `POST` | `/social/unblock` | JWT | `target_user_id` | Unblocks a previously blocked player. |
 | `POST` | `/social/report` | JWT | `target_user_id`, `reason`, `target_type`, `details` | Submits a player report ticket for moderation. |
 
 ---
 
-### 3.4 Clans Endpoints (`Routers/clan_router.py`)
+### 3.5 Clans Endpoints & Friendly Challenges (`Routers/clan_router.py`)
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
@@ -156,12 +168,14 @@ kafehfekrserver/
 | `POST` | `/clans/transfer-leadership` | JWT | `new_leader_id` | Transfers clan ownership to another member. |
 | `POST` | `/clans/disband` | JWT | Header | Disbands the clan (Leader only). |
 | `POST` | `/clans/settings` | JWT | Clan settings dictionary | Updates emblem, description, join type, minimum requirements. |
-| `POST` | `/clans/friendly-challenge` | JWT | `game_type`, `player_count` | Issues an internal friendly challenge to clanmates. |
+| `POST` | `/clans/friendly-challenge` | JWT | `game_type`, `player_count` (2–4) | Creates an open friendly challenge inside the clan for any of the 25 games. |
+| `POST` | `/clans/friendly-challenge/join` | JWT | `challenge_id` | Joins an active clan challenge. Launches match when full. |
+| `POST` | `/clans/friendly-challenge/close`| JWT | `challenge_id` | Cancels or closes an open challenge (creator only). |
 | `GET` | `/clans/details/{clan_id}` | JWT | `clan_id` (Path) | Public profile and member list of any clan. |
 
 ---
 
-### 3.5 Messaging Endpoints (`Routers/messaging_router.py`)
+### 3.6 Messaging Endpoints (`Routers/messaging_router.py`)
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
@@ -175,7 +189,7 @@ kafehfekrserver/
 
 ---
 
-### 3.6 Notification Endpoints (`Routers/notification_router.py`)
+### 3.7 Notification Endpoints (`Routers/notification_router.py`)
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
@@ -186,7 +200,7 @@ kafehfekrserver/
 
 ---
 
-### 3.7 General & Store Endpoints (`Routers/general_router.py`)
+### 3.8 General & Store Endpoints (`Routers/general_router.py`)
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
@@ -207,7 +221,7 @@ kafehfekrserver/
 
 ---
 
-### 3.8 Admin Endpoints (`Routers/admin_router.py`)
+### 3.9 Admin Endpoints (`Routers/admin_router.py`)
 
 Protected via query parameter `token` matching `admin_token` (`akbarjoojehdehebala`):
 
@@ -255,7 +269,7 @@ sequenceDiagram
 
 ### Security Notes
 - **Device Lock Enforcement:** The JWT payload contains `device_id`. Requests validated by `get_current_user` verify that the request's device ID matches the user's recorded session.
-- **Shared Secret:** The JWT signature key is shared between `kafehfekrserver` and `kafehfekrbackend` so tokens generated here are natively decoded on Socket.IO connections.
+- **Spectator Privacy Enforcement:** The `allow_spectators` field in user privacy records (`everyone`, `friends_only`, `clan_only`, `nobody`) is evaluated before returning matches in `/spectator/live-games`.
 
 ---
 
@@ -263,7 +277,7 @@ sequenceDiagram
 
 ### MongoDB Collections (`KafehFekrDB`)
 
-- **`users`**: Profiles (`phone`, `username`, `coin`, `score`, `xp`, `image`, `device_id`, `open_game_id`, `open_pre_game_id`, `profile_frame`, `profile_title`, `profile_badge`, `status_message`, `privacy`, `created_clan_id`).
+- **`users`**: Profiles (`phone`, `username`, `coin`, `score`, `xp`, `image`, `device_id`, `open_game_id`, `open_pre_game_id`, `profile_frame`, `profile_title`, `profile_badge`, `status_message`, `privacy` [incl. `allow_spectators`], `created_clan_id`).
 - **`user_history`**: Mode performance counters (`win_rank`, `win_classic_rank`, `win_multi_rank`, `rank1_multi_rank`) and game counters (`<game>_win`, `<game>_draw`, `<game>_lose`, `<game>_rank1`).
 - **`game_play_history`**: Series-level match summaries (`game_id`, `players`, `series_scores`, `winner_id`, `reward`).
 - **`game_history`**: Detailed round-level results within a match series.
@@ -276,7 +290,7 @@ sequenceDiagram
 - **`friends`**: Friend connections, pending requests, and block relationships.
 - **`invitations`**: Pending game and lobby invitations.
 - **`notifications`**: In-game alerts and status updates.
-- **`presence`**: Real-time presence states (`online`, `in_game`, `offline`, `last_seen`).
+- **`presence`**: Real-time presence states (`online`, `in_game`, `spectating`, `offline`, `last_seen`).
 - **`reports`**: Player moderation tickets.
 
 ### Automated Backup System (`Entities/Database/backup.py`)
