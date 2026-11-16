@@ -10,7 +10,8 @@ def create_user_json(phone, name="", device_id="") -> dict:
     return {'_id': random_id, 'phone': phone, 'username': name, "score": 0, "xp": 0, "coin": 50, "image": 0, "token": 0,
             "win_streak": 0, "last_daily_win": datetime(2000, 1, 1),
             "open_game_id": "", "device_id": device_id, "last_time_played": datetime(2000, 1, 1),
-            "last_time_chance": datetime(2000, 1, 1), "is_active": True, "join_date": datetime.now()}
+            "last_time_chance": datetime(2000, 1, 1), "is_active": True, "join_date": datetime.now(),
+            "profile_frame": 1, "avatar_frame": 1}
 
 
 class UsersCollectionManager:
@@ -47,41 +48,54 @@ class UsersCollectionManager:
     def read_user(self, user_id):
         query = {'_id': user_id}
         user_Data = self.collection.find_one(query)
+        if user_Data and (not user_Data.get("profile_frame") or int(user_Data.get("profile_frame", 0)) < 1):
+            user_Data["profile_frame"] = 1
+            user_Data["avatar_frame"] = 1
         return user_Data
 
     def read_user_by_phone(self, user_phone):
-        return self.is_phone_avaialble(user_phone)
+        user_Data = self.is_phone_avaialble(user_phone)
+        if user_Data and (not user_Data.get("profile_frame") or int(user_Data.get("profile_frame", 0)) < 1):
+            user_Data["profile_frame"] = 1
+            user_Data["avatar_frame"] = 1
+        return user_Data
 
     def read_users(self, users):
         query = {'_id': {"$in": users}}
         user_Data = self.collection.find(query)
         result = []
         for user in user_Data:
+            if not user.get("profile_frame") or int(user.get("profile_frame", 0)) < 1:
+                user["profile_frame"] = 1
+                user["avatar_frame"] = 1
             result.append(user)
         return result
 
     def read_ranking_users_by_score(self):
         query = {'score': {'$gt': 0}, '_id': {'$ne': '3goBRU', '$not': {'$regex': '^bot_'}}}
-        selection_items = {"username": 1, "image": 1, "score": 1, "join_date": 1}
+        selection_items = {"username": 1, "image": 1, "score": 1, "join_date": 1, "profile_frame": 1, "avatar_frame": 1}
         data = self.collection.find(query, selection_items).sort([('score', pymongo.DESCENDING)]).limit(25)
         return data
 
     def read_ranking_users_by_win(self, users_id: list):
         clean_ids = [uid for uid in users_id if not (str(uid).startswith("bot_") or str(uid).startswith("test_bot") or str(uid) == "3goBRU")]
         query = {'_id': {'$in': clean_ids}}
-        selection_items = {"username": 1, "image": 1, "score": 1, "xp": 1, "level": 1, "join_date": 1}
+        selection_items = {"username": 1, "image": 1, "score": 1, "xp": 1, "level": 1, "join_date": 1, "profile_frame": 1, "avatar_frame": 1}
         data = list(self.collection.find(query, selection_items))
         return data
 
     def read_global_user_data(self, user_id):
         query = {'_id': user_id}
-        selection_items = {"username": 1, "xp": 1, "image": 1, "score": 1, "join_date": 1}
+        selection_items = {"username": 1, "xp": 1, "image": 1, "score": 1, "join_date": 1, "profile_frame": 1, "avatar_frame": 1}
         data = self.collection.find_one(query, selection_items)
+        if data and (not data.get("profile_frame") or int(data.get("profile_frame", 0)) < 1):
+            data["profile_frame"] = 1
+            data["avatar_frame"] = 1
         return data
 
     def update_user(self, user_id, username=None, score=None, xp=None, coin=None, image=None, token=None,
                     open_game_id=None, device_id=None, last_time_played=None, last_time_chance=None, is_active=None,
-                    win_streak=None, last_daily_win=None, created_clan_id=None):
+                    win_streak=None, last_daily_win=None, created_clan_id=None, profile_frame=None, avatar_frame=None):
         if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
             return None
         query = {'_id': user_id}
@@ -100,6 +114,11 @@ class UsersCollectionManager:
             update_data['last_daily_win'] = last_daily_win
         if image is not None:
             update_data['image'] = int(image)
+        f_val = profile_frame if profile_frame is not None else avatar_frame
+        if f_val is not None:
+            f_clamped = max(1, min(20, int(f_val)))
+            update_data['profile_frame'] = f_clamped
+            update_data['avatar_frame'] = f_clamped
         if token is not None:
             update_data['token'] = token
         if open_game_id is not None:
@@ -178,7 +197,9 @@ class UsersCollectionManager:
             return None
         upd = {}
         if profile_frame is not None:
-            upd["profile_frame"] = max(0, int(profile_frame))
+            f_clamped = max(1, min(20, int(profile_frame)))
+            upd["profile_frame"] = f_clamped
+            upd["avatar_frame"] = f_clamped
         if profile_title is not None:
             upd["profile_title"] = str(profile_title).strip()[:40]
         if profile_badge is not None:

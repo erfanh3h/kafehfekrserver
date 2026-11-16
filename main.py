@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 import uvicorn
 from Routers import (
     admin_router,
@@ -32,6 +33,9 @@ app.include_router(clan_router.router)
 app.include_router(messaging_router.router)
 app.include_router(notification_router.router)
 app.include_router(spectator_router.router)
+
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 game_database.check_create_collections()
 backup_timer()

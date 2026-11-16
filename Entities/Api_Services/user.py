@@ -203,6 +203,13 @@ def update_image(user_id, image, user_coin, prev_image):
         game_database.users_manager.update_user(user_id, image=image, coin=user_coin - 50)
 
 
+def update_frame(user_id, frame):
+    from Entities.Database import game_database
+    f_clamped = max(1, min(20, int(frame)))
+    game_database.users_manager.update_user(user_id, profile_frame=f_clamped, avatar_frame=f_clamped)
+    return f_clamped
+
+
 def update_username(user_id, username, user_coin):
     #TODO : coin removed temporary
     # if user_coin < 75:

@@ -46,6 +46,13 @@ async def say_hello(image: int = Form(...), authorization: str = Header(...), us
     return {"result": True}
 
 
+@router.post("/update-frame")
+async def update_user_frame(frame: int = Form(...), authorization: str = Header(...), user_data=Depends(get_current_user)):
+    from Entities.Api_Services import user
+    saved_frame = user.update_frame(user_data['_id'], frame)
+    return {"result": True, "frame": saved_frame}
+
+
 @router.post("/update-username")
 async def say_hello(username: str = Form(...), authorization: str = Header(...), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
