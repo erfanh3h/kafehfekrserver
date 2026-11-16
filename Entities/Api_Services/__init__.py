@@ -6,9 +6,11 @@ from Commons.app_consts import admin_token
 from Entities import Network_Exeptions
 
 
-async def get_current_user(authorization: str = Header(...)):
+async def get_current_user(authorization: str = Header(default="")):
     from Entities import Security
     from Entities import Network_Exeptions
+    if not authorization or authorization.strip() in ("", "null", "undefined"):
+        raise Network_Exeptions.raise401()
     user_token_data = await Security.extract_token(authorization)
     if user_token_data is None:
         raise Network_Exeptions.raise401()
@@ -18,6 +20,23 @@ async def get_current_user(authorization: str = Header(...)):
         raise Network_Exeptions.raise401()
     else:
         return user
+
+
+async def get_current_user_optional(authorization: str = Header(default="")):
+    if not authorization or authorization.strip() in ("", "null", "undefined"):
+        return None
+    try:
+        from Entities import Security
+        user_token_data = await Security.extract_token(authorization)
+        if user_token_data is None:
+            return None
+        from Entities.Database import game_database
+        user = game_database.users_manager.read_user(user_token_data['id'])
+        if user is None or user.get('device_id') != user_token_data.get('device_id'):
+            return None
+        return user
+    except Exception:
+        return None
 
 
 def get_config():

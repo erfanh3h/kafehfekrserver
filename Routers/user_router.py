@@ -13,18 +13,20 @@ async def check_match_allow(version: str, authorization: str = Header(...), user
 
 
 @router.get("/my-data")
-async def my_data(authorization: str = Header(...), user=Depends(get_current_user)):
+async def my_data(authorization: str = Header(default=""), user=Depends(get_current_user)):
     return {"result": user}
 
 
+@router.get("/history")
 @router.get("/my-history")
-async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
+async def get_user_history_endpoint(authorization: str = Header(default=""), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
     return {"result": user.user_histories(user_data['_id'])}
 
 
+@router.get("/game-history")
 @router.get("/my-game-history")
-async def say_hello(authorization: str = Header(...), user_data=Depends(get_current_user)):
+async def get_user_game_history_endpoint(authorization: str = Header(default=""), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
     return {"result": user.user_game_histories(user_data['_id'])}
 

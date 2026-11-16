@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, Depends, Header, Request
 
-from Entities.Api_Services import get_current_user
+from Entities.Api_Services import get_current_user, get_current_user_optional
 from Entities.Api_Services.social import (
     friends,
     profiles,
@@ -37,7 +37,7 @@ async def extract_request_data(request: Request) -> dict:
 
 @router.get("/overview")
 async def get_social_overview(
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     uid = str(user["_id"])
@@ -62,7 +62,7 @@ async def get_social_overview(
 
 @router.get("/friends")
 async def get_friends_endpoint(
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     uid = str(user["_id"])
@@ -72,7 +72,7 @@ async def get_friends_endpoint(
 @router.get("/friends/requests")
 @router.get("/friend-requests")
 async def get_friend_requests_endpoint(
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     uid = str(user["_id"])
@@ -83,7 +83,7 @@ async def get_friend_requests_endpoint(
 @router.get("/discover")
 async def get_friends_discover_endpoint(
     limit: int = 15,
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     uid = str(user["_id"])
@@ -95,7 +95,7 @@ async def get_friends_discover_endpoint(
 async def search_players_endpoint(
     q: str = "",
     limit: int = 25,
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     return {"result": friends.search_players(str(user["_id"]), q, limit=limit)}
@@ -184,12 +184,13 @@ async def get_leaderboards_endpoint(
     game_type: str = "",
     clan_id: str = "",
     limit: int = 30,
-    authorization: str = Header(...),
-    user=Depends(get_current_user),
+    authorization: str = Header(default=""),
+    user=Depends(get_current_user_optional),
 ):
+    viewer_id = str(user["_id"]) if user and isinstance(user, dict) else ""
     return {
         "result": leaderboards.get_social_leaderboard(
-            viewer_id=str(user["_id"]),
+            viewer_id=viewer_id,
             board_type=board_type,
             game_type=game_type,
             clan_id=clan_id,
@@ -200,7 +201,7 @@ async def get_leaderboards_endpoint(
 
 @router.get("/invitations")
 async def list_game_invitations_endpoint(
-    authorization: str = Header(...),
+    authorization: str = Header(default=""),
     user=Depends(get_current_user),
 ):
     return {"result": invitations.list_active_invitations(str(user["_id"]))}
@@ -302,14 +303,15 @@ async def get_social_live_games_endpoint(
     filter: str = "",
     page: int = 1,
     limit: int = 20,
-    authorization: str = Header(...),
-    user=Depends(get_current_user),
+    authorization: str = Header(default=""),
+    user=Depends(get_current_user_optional),
 ):
     from Entities.Api_Services.social import spectator
     effective_filter = filter if filter else visibility
+    viewer_id = str(user["_id"]) if user and isinstance(user, dict) else ""
     return {
         "result": spectator.list_live_spectatable_games(
-            viewer_id=str(user["_id"]),
+            viewer_id=viewer_id,
             game_type=game_type,
             player_id=player_id,
             clan_id=clan_id,
