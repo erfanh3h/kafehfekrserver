@@ -114,12 +114,12 @@ def get_conversations_list(user_id: str, skip: int = 0, limit: int = 40) -> list
     return out
 
 
-def get_direct_messages_history(user_id: str, partner_id: str, skip: int = 0, limit: int = 50) -> dict:
+def get_direct_messages_history(user_id: str, partner_id: str, skip: int = 0, limit: int = 50, before: str = "") -> dict:
     uid, pid = str(user_id), str(partner_id).strip()
     if game_database.friends_manager.is_blocked(uid, pid):
         raise Network_Exeptions.raise403(details="امکان دسترسی به این گفت‌وگو وجود ندارد.")
     game_database.direct_messages_manager.mark_conversation_read(uid, pid)
-    msgs = game_database.direct_messages_manager.get_conversation_messages(uid, pid, skip=skip, limit=limit)
+    msgs = game_database.direct_messages_manager.get_conversation_messages(uid, pid, skip=skip, limit=limit, before=before)
     partner_doc = game_database.users_manager.read_user(pid)
     pres = game_database.presence_manager.get_presence(pid)
     return {
@@ -153,7 +153,7 @@ def send_clan_chat_message(sender_data: dict, text: str) -> dict:
     return _format_clan_msg(msg_doc)
 
 
-def get_clan_chat_history(user_id: str, clan_id: str = "", skip: int = 0, limit: int = 50) -> list[dict]:
+def get_clan_chat_history(user_id: str, clan_id: str = "", skip: int = 0, limit: int = 50, before: str = "") -> list[dict]:
     uid = str(user_id)
     mem = game_database.clans_manager.get_user_membership(uid)
     if not mem:
@@ -161,7 +161,7 @@ def get_clan_chat_history(user_id: str, clan_id: str = "", skip: int = 0, limit:
     cid = str(clan_id or mem["clan_id"])
     if str(mem["clan_id"]) != cid:
         raise Network_Exeptions.raise403(details="دسترسی به چت خصوصی کلن دیگران مجاز نیست.")
-    msgs = game_database.clan_messages_manager.get_clan_messages(cid, skip=skip, limit=limit)
+    msgs = game_database.clan_messages_manager.get_clan_messages(cid, skip=skip, limit=limit, before=before)
     return [_format_clan_msg(m) for m in msgs]
 
 

@@ -23,10 +23,11 @@ async def get_dm_history_endpoint(
     partner_id: str,
     skip: int = 0,
     limit: int = 50,
+    before: str = "",
     authorization: str = Header(...),
     user=Depends(get_current_user),
 ):
-    return {"result": messages.get_direct_messages_history(str(user["_id"]), partner_id, skip=skip, limit=limit)}
+    return {"result": messages.get_direct_messages_history(str(user["_id"]), partner_id, skip=skip, limit=limit, before=before)}
 
 
 @router.post("/direct/send")
@@ -60,10 +61,11 @@ async def get_clan_chat_endpoint(
     clan_id: str = "",
     skip: int = 0,
     limit: int = 50,
+    before: str = "",
     authorization: str = Header(...),
     user=Depends(get_current_user),
 ):
-    return {"result": messages.get_clan_chat_history(str(user["_id"]), clan_id=clan_id, skip=skip, limit=limit)}
+    return {"result": messages.get_clan_chat_history(str(user["_id"]), clan_id=clan_id, skip=skip, limit=limit, before=before)}
 
 
 @router.post("/clan/send")

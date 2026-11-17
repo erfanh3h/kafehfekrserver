@@ -50,11 +50,23 @@ class ClanMessagesCollectionManager:
     def read_message(self, message_id: str):
         return self.collection.find_one({"_id": str(message_id)})
 
-    def get_clan_messages(self, clan_id: str, skip: int = 0, limit: int = 50) -> list[dict]:
+    def get_clan_messages(self, clan_id: str, skip: int = 0, limit: int = 50, before: str = "") -> list[dict]:
+        query: dict = {"clan_id": str(clan_id), "is_deleted": False}
+        if before:
+            ref_msg = self.collection.find_one({"_id": str(before)})
+            if ref_msg and "created_at" in ref_msg:
+                query["created_at"] = {"$lt": ref_msg["created_at"]}
+            else:
+                try:
+                    dt = datetime.fromisoformat(str(before).replace("Z", "+00:00"))
+                    query["created_at"] = {"$lt": dt}
+                except Exception:
+                    pass
+
         cursor = (
-            self.collection.find({"clan_id": str(clan_id), "is_deleted": False})
+            self.collection.find(query)
             .sort("created_at", -1)
-            .skip(max(0, int(skip)))
+            .skip(max(0, int(skip)) if not before else 0)
             .limit(max(1, min(int(limit), 100)))
         )
         items = list(cursor)

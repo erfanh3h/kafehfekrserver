@@ -96,12 +96,24 @@ class DirectMessagesCollectionManager:
         )
         return list(cursor)
 
-    def get_conversation_messages(self, user_a: str, user_b: str, skip: int = 0, limit: int = 50) -> list[dict]:
+    def get_conversation_messages(self, user_a: str, user_b: str, skip: int = 0, limit: int = 50, before: str = "") -> list[dict]:
         cid = _conv_id(user_a, user_b)
+        query: dict = {"conversation_id": cid, "is_deleted": False}
+        if before:
+            ref_msg = self.messages.find_one({"_id": str(before)})
+            if ref_msg and "created_at" in ref_msg:
+                query["created_at"] = {"$lt": ref_msg["created_at"]}
+            else:
+                try:
+                    dt = datetime.fromisoformat(str(before).replace("Z", "+00:00"))
+                    query["created_at"] = {"$lt": dt}
+                except Exception:
+                    pass
+
         cursor = (
-            self.messages.find({"conversation_id": cid, "is_deleted": False})
+            self.messages.find(query)
             .sort("created_at", -1)
-            .skip(max(0, int(skip)))
+            .skip(max(0, int(skip)) if not before else 0)
             .limit(max(1, min(int(limit), 100)))
         )
         items = list(cursor)
