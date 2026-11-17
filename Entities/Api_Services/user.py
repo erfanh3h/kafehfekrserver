@@ -71,6 +71,7 @@ def user_game_histories(user_id):
                             "username": u_data.get("name", u_data.get("username", "بازیکن")),
                             "name": u_data.get("name", u_data.get("username", "بازیکن")),
                             "image": int(u_data.get("image", 0)),
+                            "profile_frame": int(u_data.get("profile_frame", 0)),
                             "score": int(u_data.get("score", 0)),
                             "level": int(u_data.get("level", 1)),
                             "xp": int(u_data.get("xp", 0)),
@@ -82,6 +83,7 @@ def user_game_histories(user_id):
                             "username": "بازیکن",
                             "name": "بازیکن",
                             "image": 0,
+                            "profile_frame": 0,
                             "score": 0,
                             "level": 1,
                             "xp": 0,
@@ -95,20 +97,34 @@ def user_game_histories(user_id):
                 k = f'user{i}_score'
                 user_scores.append(int(g.get(k, 0)))
 
+        winner_list = g.get('winner_list', []) or []
         winner_id = g.get('winner_id')
         if winner_id is None or winner_id == "":
-            u1_score = int(g.get('user1_score', 0))
-            u2_score = int(g.get('user2_score', 0))
-            u1_id = str(g.get('user1_id', ''))
-            u2_id = str(g.get('user2_id', ''))
-            if u1_score > u2_score and u1_id:
-                winner_id = u1_id
-            elif u2_score > u1_score and u2_id:
-                winner_id = u2_id
-            elif u1_score == u2_score and (u1_score > 0 or g.get('is_finished')):
-                winner_id = "0"
+            if winner_list:
+                winner_id = str(winner_list[0])
+            elif len(users_info) > 2 and user_scores:
+                max_sc = max(user_scores)
+                if max_sc > 0:
+                    top_idxs = [i for i, sc in enumerate(user_scores) if sc == max_sc]
+                    if len(top_idxs) == 1 and top_idxs[0] < len(users_info):
+                        winner_id = str(users_info[top_idxs[0]].get("user_id", ""))
+                    else:
+                        winner_id = "0"
+                else:
+                    winner_id = ""
             else:
-                winner_id = ""
+                u1_score = int(g.get('user1_score', 0))
+                u2_score = int(g.get('user2_score', 0))
+                u1_id = str(g.get('user1_id', ''))
+                u2_id = str(g.get('user2_id', ''))
+                if u1_score > u2_score and u1_id:
+                    winner_id = u1_id
+                elif u2_score > u1_score and u2_id:
+                    winner_id = u2_id
+                elif u1_score == u2_score and (u1_score > 0 or g.get('is_finished')):
+                    winner_id = "0"
+                else:
+                    winner_id = ""
 
         winner_id_str = str(winner_id)
         if not g.get('is_finished', False):
@@ -140,6 +156,7 @@ def user_game_histories(user_id):
         result.append({
             "_id": g_id,
             "game_play_id": g_id,
+            "user1_id": str(g.get("user1_id", users_info[0].get("user_id", "") if users_info else "")),
             "game_types": g.get("game_types", []),
             "game_type": first_game,
             "game_score_type": g.get("game_score_type", "Rank"),
@@ -148,7 +165,7 @@ def user_game_histories(user_id):
             "finish_date": f_date.isoformat() if hasattr(f_date, 'isoformat') else str(f_date or ''),
             "winner_id": winner_id_str,
             "winner": winner_id_str,
-            "winner_list": g.get("winner_list", []),
+            "winner_list": winner_list,
             "user_scores": user_scores,
             "users_info": users_info,
             "opponent_name": opp_name,
