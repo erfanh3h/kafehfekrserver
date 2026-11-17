@@ -6,6 +6,7 @@ from Entities.Api_Services.social.security import (
     serialize_dt,
     sanitize_public_user_summary,
 )
+from Entities.Api_Services.social.realtime_bridge import emit_social_realtime
 
 
 def _attach_user_summaries(user_ids: list[str]) -> dict[str, dict]:
@@ -96,6 +97,20 @@ def send_friend_request(from_user_id: str, to_user_id: str, message: str = "") -
         payload={"request_id": req_doc["_id"], "from_user_id": fid},
         category="friend_requests",
     )
+    emit_social_realtime(
+        events=[
+            {
+                "room": f"user_{tid}",
+                "command_id": "SocialNotificationReceived",
+                "data": {
+                    "type": "friend_request_received",
+                    "request_id": str(req_doc["_id"]),
+                    "from_user_id": fid,
+                    "title": "👥 درخواست دوستی جدید",
+                },
+            }
+        ]
+    )
     return {
         "request_id": req_doc["_id"],
         "from_user_id": fid,
@@ -116,6 +131,16 @@ def respond_friend_request(user_id: str, request_id: str, action: str) -> dict:
         if str(req.get("from_user_id")) != uid:
             raise Network_Exeptions.raise403(details="شما مجاز به لغو این درخواست نیستید.")
         game_database.friends_manager.update_request_status(request_id, "canceled")
+        to_id = str(req.get("to_user_id", ""))
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"user_{to_id}",
+                    "command_id": "SocialNotificationReceived",
+                    "data": {"type": "friend_request_updated", "status": "canceled", "request_id": request_id},
+                }
+            ]
+        )
         return {"request_id": request_id, "status": "canceled"}
 
     if str(req.get("to_user_id")) != uid:
@@ -140,10 +165,38 @@ def respond_friend_request(user_id: str, request_id: str, action: str) -> dict:
             payload={"friend_id": uid},
             category="friend_requests",
         )
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"user_{from_id}",
+                    "command_id": "SocialNotificationReceived",
+                    "data": {"type": "friend_request_accepted", "status": "accepted", "friend_id": uid, "request_id": request_id},
+                },
+                {
+                    "room": f"user_{uid}",
+                    "command_id": "SocialNotificationReceived",
+                    "data": {"type": "friend_request_updated", "status": "accepted", "friend_id": from_id, "request_id": request_id},
+                },
+            ]
+        )
         return {"request_id": request_id, "status": "accepted", "friend_id": from_id}
 
     if act == "reject":
         game_database.friends_manager.update_request_status(request_id, "rejected")
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"user_{from_id}",
+                    "command_id": "SocialNotificationReceived",
+                    "data": {"type": "friend_request_updated", "status": "rejected", "request_id": request_id},
+                },
+                {
+                    "room": f"user_{uid}",
+                    "command_id": "SocialNotificationReceived",
+                    "data": {"type": "friend_request_updated", "status": "rejected", "request_id": request_id},
+                },
+            ]
+        )
         return {"request_id": request_id, "status": "rejected"}
 
     raise Network_Exeptions.raise422(details="عملیات نامعتبر است.")
@@ -154,6 +207,15 @@ def remove_friend(user_id: str, friend_id: str) -> dict:
     if not game_database.friends_manager.are_friends(uid, fid):
         raise Network_Exeptions.raise404(details="این بازیکن در لیست دوستان شما نیست.")
     game_database.friends_manager.remove_friendship(uid, fid)
+    emit_social_realtime(
+        events=[
+            {
+                "room": f"user_{fid}",
+                "command_id": "SocialNotificationReceived",
+                "data": {"type": "friend_removed", "friend_id": uid},
+            }
+        ]
+    )
     return {"removed": True, "friend_id": fid}
 
 

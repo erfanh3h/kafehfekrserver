@@ -17,6 +17,7 @@ from Entities.Api_Services.social.security import (
     serialize_dt,
     sanitize_public_user_summary,
 )
+from Entities.Api_Services.social.realtime_bridge import emit_social_realtime
 
 
 WEEKLY_CLAN_CHALLENGES = [
@@ -85,10 +86,11 @@ def _serialize_clan(clan_doc: dict | None, viewer_membership: dict | None = None
     return out
 
 
-def _post_clan_system_message(clan_id: str, text: str, metadata: dict | None = None):
+def _post_clan_system_message(clan_id: str, text: str, metadata: dict | None = None, broadcast: bool = True) -> dict | None:
     try:
-        game_database.clan_messages_manager.create_message(
-            clan_id=str(clan_id),
+        cid = str(clan_id)
+        doc = game_database.clan_messages_manager.create_message(
+            clan_id=cid,
             sender_id="system",
             sender_name="سیستم کلن",
             sender_image=0,
@@ -97,8 +99,32 @@ def _post_clan_system_message(clan_id: str, text: str, metadata: dict | None = N
             msg_type="system",
             metadata=metadata or {},
         )
+        formatted = {
+            "message_id": str(doc["_id"]),
+            "clan_id": cid,
+            "sender_id": "system",
+            "sender_name": "سیستم کلن",
+            "sender_image": 0,
+            "sender_role": "system",
+            "text": text,
+            "msg_type": "system",
+            "metadata": metadata or {},
+            "mentions": [],
+            "created_at": serialize_dt(doc.get("created_at")),
+        }
+        if broadcast:
+            emit_social_realtime(
+                events=[
+                    {
+                        "room": f"clan_{cid}",
+                        "command_id": "SocialClanChatReceived",
+                        "data": formatted,
+                    }
+                ]
+            )
+        return formatted
     except Exception:
-        pass
+        return None
 
 
 def create_clan(
@@ -152,9 +178,24 @@ def create_clan(
         game_database.users_manager.update_user(uid, created_clan_id=str(clan_doc["_id"]))
     except Exception:
         pass
-    _post_clan_system_message(
-        clan_doc["_id"],
+    cid = str(clan_doc["_id"])
+    sys_msg = _post_clan_system_message(
+        cid,
         f"🏰 کلن «{clean_name}» ({clean_tag}) توسط {user_data.get('username', 'بازیکن')} تاسیس شد!",
+        broadcast=False,
+    )
+    evs = [
+        {
+            "room": f"user_{uid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "clan_created", "clan_id": cid, "user_id": uid, "message": f"اتحاد «{clean_name}» تاسیس شد!"},
+        }
+    ]
+    if sys_msg:
+        evs.append({"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(
+        room_updates_before=[{"user_id": uid, "join_clan": cid}],
+        events=evs,
     )
     mem = game_database.clans_manager.get_user_membership(uid)
     return _serialize_clan(clan_doc, mem)
@@ -351,6 +392,21 @@ def join_or_request_clan(user_data: dict, clan_id: str, message: str = "") -> di
                     payload={"clan_id": cid, "request_id": req["_id"]},
                     category="clan_events",
                 )
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"clan_{cid}",
+                    "command_id": "SocialClanEvent",
+                    "data": {
+                        "event_type": "join_request_received",
+                        "clan_id": cid,
+                        "user_id": uid,
+                        "request_id": str(req["_id"]),
+                        "message": f"{user_data.get('username', 'بازیکن')} درخواست عضویت در اتحاد ارسال کرد.",
+                    },
+                }
+            ]
+        )
         return {"status": "requested", "request_id": req["_id"], "clan_id": cid}
 
     # Open clan -> join immediately
@@ -360,7 +416,26 @@ def join_or_request_clan(user_data: dict, clan_id: str, message: str = "") -> di
             raise Network_Exeptions.raise422(details="ظرفیت کلن تکمیل است.")
         raise Network_Exeptions.raise409(details="امکان عضویت در کلن وجود ندارد.")
 
-    _post_clan_system_message(cid, f"🎉 {user_data.get('username', 'بازیکن')} به کلن پیوست!")
+    uname = str(user_data.get("username", "بازیکن"))
+    sys_msg = _post_clan_system_message(cid, f"🎉 {uname} به کلن پیوست!", broadcast=False)
+    evs = [
+        {
+            "room": f"clan_{cid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_joined", "clan_id": cid, "user_id": uid, "message": f"{uname} به اتحاد پیوست!"},
+        },
+        {
+            "room": f"user_{uid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_joined", "clan_id": cid, "user_id": uid, "message": f"شما به اتحاد «{clan.get('name', '')}» پیوستید!"},
+        },
+    ]
+    if sys_msg:
+        evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(
+        room_updates_before=[{"user_id": uid, "join_clan": cid}],
+        events=evs,
+    )
     return {"status": "joined", "clan_id": cid}
 
 
@@ -382,6 +457,20 @@ def respond_clan_join_request(actor_data: dict, request_id: str, action: str) ->
     if act == "reject":
         game_database.clans_manager.update_join_request_status(request_id, "rejected", aid)
         game_database.clans_manager.log_audit(cid, aid, "reject_join_request", target_uid)
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"clan_{cid}",
+                    "command_id": "SocialClanEvent",
+                    "data": {"event_type": "join_request_rejected", "clan_id": cid, "user_id": target_uid, "message": "درخواست عضویت رد شد."},
+                },
+                {
+                    "room": f"user_{target_uid}",
+                    "command_id": "SocialClanEvent",
+                    "data": {"event_type": "join_request_rejected", "clan_id": cid, "user_id": target_uid, "message": "درخواست عضویت شما در اتحاد رد شد."},
+                },
+            ]
+        )
         return {"request_id": request_id, "status": "rejected"}
 
     if act == "accept":
@@ -396,9 +485,11 @@ def respond_clan_join_request(actor_data: dict, request_id: str, action: str) ->
 
         target_u = game_database.users_manager.read_user(target_uid) or {}
         clan = game_database.clans_manager.read_clan(cid) or {}
-        _post_clan_system_message(
+        t_name = str(target_u.get("username", "بازیکن"))
+        sys_msg = _post_clan_system_message(
             cid,
-            f"🎉 درخواست عضویت {target_u.get('username', 'بازیکن')} توسط {actor_data.get('username', 'مدیر')} پذیرفته شد!",
+            f"🎉 درخواست عضویت {t_name} توسط {actor_data.get('username', 'مدیر')} پذیرفته شد!",
+            broadcast=False,
         )
         game_database.notifications_manager.create_notification(
             user_id=target_uid,
@@ -410,6 +501,24 @@ def respond_clan_join_request(actor_data: dict, request_id: str, action: str) ->
             actor_image=int(actor_data.get("image", 0) or 0),
             payload={"clan_id": cid},
             category="clan_events",
+        )
+        evs = [
+            {
+                "room": f"clan_{cid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "join_request_accepted", "clan_id": cid, "user_id": target_uid, "message": f"{t_name} به اتحاد پیوست!"},
+            },
+            {
+                "room": f"user_{target_uid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "join_request_accepted", "clan_id": cid, "user_id": target_uid, "message": f"درخواست شما پذیرفته شد و به اتحاد «{clan.get('name', '')}» پیوستید!"},
+            },
+        ]
+        if sys_msg:
+            evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+        emit_social_realtime(
+            room_updates_before=[{"user_id": target_uid, "join_clan": cid}],
+            events=evs,
         )
         return {"request_id": request_id, "status": "accepted", "clan_id": cid, "user_id": target_uid}
 
@@ -490,7 +599,26 @@ def respond_clan_invitation(user_data: dict, invite_id: str, action: str) -> dic
                 raise Network_Exeptions.raise422(details="ظرفیت کلن تکمیل است.")
             raise Network_Exeptions.raise409(details="شما در حال حاضر عضو کلن دیگری هستید.")
         game_database.clans_manager.update_clan_invitation_status(invite_id, "accepted")
-        _post_clan_system_message(cid, f"🎉 {user_data.get('username', 'بازیکن')} با پذیرش دعوت‌نامه به کلن پیوست!")
+        uname = str(user_data.get("username", "بازیکن"))
+        sys_msg = _post_clan_system_message(cid, f"🎉 {uname} با پذیرش دعوت‌نامه به کلن پیوست!", broadcast=False)
+        evs = [
+            {
+                "room": f"clan_{cid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "member_joined", "clan_id": cid, "user_id": uid, "message": f"{uname} به اتحاد پیوست!"},
+            },
+            {
+                "room": f"user_{uid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "member_joined", "clan_id": cid, "user_id": uid, "message": "عضویت شما در اتحاد تایید شد!"},
+            },
+        ]
+        if sys_msg:
+            evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+        emit_social_realtime(
+            room_updates_before=[{"user_id": uid, "join_clan": cid}],
+            events=evs,
+        )
         return {"invite_id": invite_id, "status": "accepted", "clan_id": cid}
 
     raise Network_Exeptions.raise422(details="عملیات نامعتبر است.")
@@ -512,10 +640,39 @@ def leave_clan(user_data: dict) -> dict:
             )
         # Sole member leaving -> disband clan
         game_database.clans_manager.disband_clan(cid, uid)
+        emit_social_realtime(
+            events=[
+                {
+                    "room": f"user_{uid}",
+                    "command_id": "SocialClanEvent",
+                    "data": {"event_type": "clan_disbanded", "clan_id": cid, "user_id": uid, "message": "اتحاد منحل شد."},
+                }
+            ],
+            room_updates=[{"user_id": uid, "leave_clan": cid}],
+        )
         return {"left": True, "disbanded": True, "clan_id": cid}
 
     game_database.clans_manager.remove_member(cid, uid)
-    _post_clan_system_message(cid, f"👋 {user_data.get('username', 'بازیکن')} از کلن خارج شد.")
+    uname = str(user_data.get("username", "بازیکن"))
+    sys_msg = _post_clan_system_message(cid, f"👋 {uname} از کلن خارج شد.", broadcast=False)
+    evs = [
+        {
+            "room": f"clan_{cid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_left", "clan_id": cid, "user_id": uid, "message": f"{uname} از اتحاد خارج شد."},
+        },
+        {
+            "room": f"user_{uid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_left", "clan_id": cid, "user_id": uid, "message": "از اتحاد خارج شدید."},
+        },
+    ]
+    if sys_msg:
+        evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(
+        events=evs,
+        room_updates=[{"user_id": uid, "leave_clan": cid}],
+    )
     return {"left": True, "disbanded": False, "clan_id": cid}
 
 
@@ -536,11 +693,31 @@ def kick_clan_member(actor_data: dict, target_user_id: str) -> dict:
         raise Network_Exeptions.raise403(details="شما اجازه اخراج هم‌کلنی با درجه هم‌سطح یا بالاتر را ندارید.")
 
     target_u = game_database.users_manager.read_user(tid) or {}
+    t_name = str(target_u.get("username", "بازیکن"))
     game_database.clans_manager.remove_member(cid, tid)
     game_database.clans_manager.log_audit(cid, aid, "kick_member", tid)
-    _post_clan_system_message(
+    sys_msg = _post_clan_system_message(
         cid,
-        f"🚫 {target_u.get('username', 'بازیکن')} توسط {actor_data.get('username', 'مدیر')} از کلن اخراج شد.",
+        f"🚫 {t_name} توسط {actor_data.get('username', 'مدیر')} از کلن اخراج شد.",
+        broadcast=False,
+    )
+    evs = [
+        {
+            "room": f"clan_{cid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_kicked", "clan_id": cid, "user_id": tid, "message": f"{t_name} از اتحاد اخراج شد."},
+        },
+        {
+            "room": f"user_{tid}",
+            "command_id": "SocialClanEvent",
+            "data": {"event_type": "member_kicked", "clan_id": cid, "user_id": tid, "message": "شما از اتحاد اخراج شدید."},
+        },
+    ]
+    if sys_msg:
+        evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(
+        events=evs,
+        room_updates=[{"user_id": tid, "leave_clan": cid}],
     )
     return {"kicked": True, "user_id": tid, "clan_id": cid}
 
@@ -571,8 +748,9 @@ def change_member_role(actor_data: dict, target_user_id: str, new_role: str) -> 
     game_database.clans_manager.set_member_role(cid, tid, r_new)
     game_database.clans_manager.log_audit(cid, aid, "change_role", tid, {"new_role": r_new})
     target_u = game_database.users_manager.read_user(tid) or {}
+    t_name = str(target_u.get("username", "بازیکن"))
     role_fa = CLAN_ROLE_FA.get(r_new, r_new)
-    _post_clan_system_message(cid, f"🎖️ درجه {target_u.get('username', 'بازیکن')} به «{role_fa}» تغییر یافت.")
+    sys_msg = _post_clan_system_message(cid, f"🎖️ درجه {t_name} به «{role_fa}» تغییر یافت.", broadcast=False)
     game_database.notifications_manager.create_notification(
         user_id=tid,
         notif_type="clan_role_changed",
@@ -584,6 +762,23 @@ def change_member_role(actor_data: dict, target_user_id: str, new_role: str) -> 
         payload={"clan_id": cid, "new_role": r_new},
         category="clan_events",
     )
+    evs = [
+        {
+            "room": f"clan_{cid}",
+            "command_id": "SocialClanEvent",
+            "data": {
+                "event_type": "role_changed",
+                "clan_id": cid,
+                "user_id": tid,
+                "new_role": r_new,
+                "role_title": role_fa,
+                "message": f"درجه {t_name} به «{role_fa}» تغییر یافت.",
+            },
+        }
+    ]
+    if sys_msg:
+        evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(events=evs)
     return {"clan_id": cid, "user_id": tid, "new_role": r_new, "role_title": role_fa}
 
 
@@ -602,10 +797,27 @@ def transfer_clan_leadership(actor_data: dict, new_leader_id: str) -> dict:
     cid = str(actor_mem["clan_id"])
     game_database.clans_manager.transfer_leadership(cid, aid, nid)
     target_u = game_database.users_manager.read_user(nid) or {}
-    _post_clan_system_message(
+    t_name = str(target_u.get("username", "بازیکن"))
+    sys_msg = _post_clan_system_message(
         cid,
-        f"👑 رهبری کلن توسط {actor_data.get('username', 'رهبر')} به {target_u.get('username', 'بازیکن')} واگذار شد!",
+        f"👑 رهبری کلن توسط {actor_data.get('username', 'رهبر')} به {t_name} واگذار شد!",
+        broadcast=False,
     )
+    evs = [
+        {
+            "room": f"clan_{cid}",
+            "command_id": "SocialClanEvent",
+            "data": {
+                "event_type": "leadership_transferred",
+                "clan_id": cid,
+                "new_leader_id": nid,
+                "message": f"رهبری اتحاد به {t_name} واگذار شد!",
+            },
+        }
+    ]
+    if sys_msg:
+        evs.insert(0, {"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": sys_msg})
+    emit_social_realtime(events=evs)
     return {"clan_id": cid, "new_leader_id": nid}
 
 
@@ -615,7 +827,18 @@ def disband_clan(actor_data: dict) -> dict:
     if not actor_mem or str(actor_mem.get("role")) != "leader":
         raise Network_Exeptions.raise403(details="فقط رهبر کلن مجاز به انحلال کلن است.")
     cid = str(actor_mem["clan_id"])
+    member_ids = [str(m["user_id"]) for m in game_database.clans_manager.get_clan_members(cid)]
     game_database.clans_manager.disband_clan(cid, aid)
+    emit_social_realtime(
+        events=[
+            {
+                "room": f"clan_{cid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "clan_disbanded", "clan_id": cid, "message": "اتحاد توسط رهبر منحل شد."},
+            }
+        ],
+        room_updates=[{"user_id": mid, "leave_clan": cid} for mid in member_ids],
+    )
     return {"disbanded": True, "clan_id": cid}
 
 
@@ -627,6 +850,15 @@ def update_clan_settings(actor_data: dict, updates: dict) -> dict:
     cid = str(actor_mem["clan_id"])
     updated = game_database.clans_manager.update_clan_settings(cid, updates)
     game_database.clans_manager.log_audit(cid, aid, "update_settings", cid, updates)
+    emit_social_realtime(
+        events=[
+            {
+                "room": f"clan_{cid}",
+                "command_id": "SocialClanEvent",
+                "data": {"event_type": "settings_updated", "clan_id": cid, "message": "تنظیمات اتحاد بروزرسانی شد."},
+            }
+        ]
+    )
     return _serialize_clan(updated, actor_mem)
 
 

@@ -27,13 +27,19 @@ class PresenceCollectionManager:
         current_lobby_id: str = "",
         socket_id: str = "",
         add_socket: bool = True,
+        reset_sockets: bool = False,
+        clear_sockets: bool = False,
     ) -> dict:
         uid = str(user_id)
         st = status if status in VALID_PRESENCE_STATUSES else "online"
         now = datetime.now()
         existing = self.collection.find_one({"_id": uid}) or {}
         active_sockets = list(existing.get("active_sockets", []) or [])
-        if socket_id:
+        if clear_sockets:
+            active_sockets = []
+        elif reset_sockets:
+            active_sockets = [socket_id] if socket_id else []
+        elif socket_id:
             if add_socket:
                 if socket_id not in active_sockets:
                     active_sockets.append(socket_id)

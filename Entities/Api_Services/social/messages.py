@@ -8,6 +8,7 @@ from Entities.Api_Services.social.security import (
     serialize_dt,
     sanitize_public_user_summary,
 )
+from Entities.Api_Services.social.realtime_bridge import emit_social_realtime
 
 
 def _format_dm(msg: dict) -> dict:
@@ -76,7 +77,16 @@ def send_direct_message(sender_data: dict, to_user_id: str, text: str) -> dict:
         payload={"conversation_id": msg_doc["conversation_id"], "from_user_id": fid},
         category="direct_messages",
     )
-    return _format_dm(msg_doc)
+    formatted = _format_dm(msg_doc)
+    formatted["from_username"] = str(sender_data.get("username", "بازیکن"))
+    formatted["from_image"] = int(sender_data.get("image", 0) or 0)
+    emit_social_realtime(
+        events=[
+            {"room": f"user_{fid}", "command_id": "SocialDMReceived", "data": formatted},
+            {"room": f"user_{tid}", "command_id": "SocialDMReceived", "data": formatted},
+        ]
+    )
+    return formatted
 
 
 def get_conversations_list(user_id: str, skip: int = 0, limit: int = 40) -> list[dict]:
@@ -119,12 +129,23 @@ def get_direct_messages_history(user_id: str, partner_id: str, skip: int = 0, li
     if game_database.friends_manager.is_blocked(uid, pid):
         raise Network_Exeptions.raise403(details="امکان دسترسی به این گفت‌وگو وجود ندارد.")
     game_database.direct_messages_manager.mark_conversation_read(uid, pid)
+    try:
+        game_database.notifications_manager.collection.update_many(
+            {"user_id": uid, "actor_id": pid, "type": "direct_message_received", "is_read": False},
+            {"$set": {"is_read": True}},
+        )
+    except Exception:
+        pass
+    total_unread_dms = game_database.direct_messages_manager.get_total_unread_count(uid)
+    total_unread_notifs = game_database.notifications_manager.get_unread_count(uid)
     msgs = game_database.direct_messages_manager.get_conversation_messages(uid, pid, skip=skip, limit=limit, before=before)
     partner_doc = game_database.users_manager.read_user(pid)
     pres = game_database.presence_manager.get_presence(pid)
     return {
         "partner": sanitize_public_user_summary(partner_doc, pres) if partner_doc else {"user_id": pid},
         "messages": [_format_dm(m) for m in msgs],
+        "unread_dms": total_unread_dms,
+        "unread_notifications": total_unread_notifs,
     }
 
 
@@ -150,7 +171,11 @@ def send_clan_chat_message(sender_data: dict, text: str) -> dict:
         msg_type="text",
         mentions=mentions[:5],
     )
-    return _format_clan_msg(msg_doc)
+    formatted = _format_clan_msg(msg_doc)
+    emit_social_realtime(
+        events=[{"room": f"clan_{cid}", "command_id": "SocialClanChatReceived", "data": formatted}]
+    )
+    return formatted
 
 
 def get_clan_chat_history(user_id: str, clan_id: str = "", skip: int = 0, limit: int = 50, before: str = "") -> list[dict]:
@@ -178,6 +203,16 @@ def delete_clan_chat_message(actor_data: dict, message_id: str) -> dict:
     if str(msg.get("sender_id")) != aid and role_rank < CLAN_ROLE_RANK["elder"]:
         raise Network_Exeptions.raise403(details="فقط مدیران کلن یا نویسنده پیام مجاز به حذف پیام هستند.")
 
+    cid = str(mem["clan_id"])
     game_database.clan_messages_manager.delete_message(message_id, aid)
-    game_database.clans_manager.log_audit(str(mem["clan_id"]), aid, "delete_clan_message", message_id)
+    game_database.clans_manager.log_audit(cid, aid, "delete_clan_message", message_id)
+    emit_social_realtime(
+        events=[
+            {
+                "room": f"clan_{cid}",
+                "command_id": "SocialClanChatDeleted",
+                "data": {"clan_id": cid, "message_id": message_id, "deleted_by": aid},
+            }
+        ]
+    )
     return {"deleted": True, "message_id": message_id}

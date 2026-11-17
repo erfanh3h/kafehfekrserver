@@ -53,7 +53,8 @@ async def mark_dm_read_endpoint(
     params = await extract_request_data(request)
     partner_id = str(params.get("partner_id", "")).strip()
     cleared = messages.game_database.direct_messages_manager.mark_conversation_read(str(user["_id"]), partner_id)
-    return {"result": {"cleared": cleared}}
+    total_unread_dms = messages.game_database.direct_messages_manager.get_total_unread_count(str(user["_id"]))
+    return {"result": {"cleared": cleared, "unread_dms": total_unread_dms}}
 
 
 @router.get("/clan")
