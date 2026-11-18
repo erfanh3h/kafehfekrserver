@@ -373,8 +373,8 @@ def join_or_request_clan(user_data: dict, clan_id: str, message: str = "") -> di
         raise Network_Exeptions.raise422(details="سطح شما کمتر از حداقل سطح مورد نیاز کلن است.")
 
     j_type = str(clan.get("join_type", "open"))
-    if j_type == "invite_only":
-        raise Network_Exeptions.raise403(details="عضویت در این کلن فقط با دعوت‌نامه امکان‌پذیر است.")
+    if j_type not in ("open", "request"):
+        j_type = "request"
 
     if j_type == "request":
         req = game_database.clans_manager.create_join_request(cid, uid, sanitize_text(message, 140))

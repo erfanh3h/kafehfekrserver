@@ -142,7 +142,7 @@ class ClansCollectionManager:
         clean_tag = str(tag).strip().upper()
         if not clean_tag.startswith("#"):
             clean_tag = "#" + clean_tag
-        if join_type not in ("open", "request", "invite_only"):
+        if join_type not in ("open", "request"):
             join_type = "open"
         now = datetime.now()
         clan_id = f"clan_{create_random_name()}"
@@ -218,7 +218,7 @@ class ClansCollectionManager:
                     {"name_lower": {"$regex": qt.lower()}},
                     {"tag_upper": {"$regex": qt.upper()}},
                 ]
-        if join_type in ("open", "request", "invite_only"):
+        if join_type in ("open", "request"):
             q["join_type"] = join_type
         if language:
             q["language"] = str(language)
@@ -248,7 +248,7 @@ class ClansCollectionManager:
             allowed["emblem_id"] = max(0, int(updates["emblem_id"]))
         if "language" in updates and updates["language"] is not None:
             allowed["language"] = str(updates["language"]).strip()[:10]
-        if "join_type" in updates and updates["join_type"] in ("open", "request", "invite_only"):
+        if "join_type" in updates and updates["join_type"] in ("open", "request"):
             allowed["join_type"] = updates["join_type"]
         if "min_score" in updates and updates["min_score"] is not None:
             allowed["min_score"] = max(0, int(updates["min_score"]))

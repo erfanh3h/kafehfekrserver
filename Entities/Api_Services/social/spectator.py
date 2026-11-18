@@ -39,6 +39,7 @@ SAFE_SPECTATOR_GAMES = {
     "dotsandboxes",
     "yinsh",
     "yatzy",
+    "mnumbers",
 }
 
 PRIVATE_STATE_GAMES = {
@@ -48,7 +49,6 @@ PRIVATE_STATE_GAMES = {
     "fekrbekr",
     "sudoku",
     "msweeper",
-    "mnumbers",
     "quiz",
     "rpc",
 }
@@ -56,6 +56,10 @@ PRIVATE_STATE_GAMES = {
 
 def _normalize_game_type(game_type: str) -> str:
     return str(game_type or "").strip().lower().replace("_", "").replace("-", "")
+
+
+def _normalize_game_mode(game_mode: str) -> str:
+    return str(game_mode or "").strip().lower().replace("_", "").replace("-", "").replace(" ", "")
 
 
 def is_game_spectatable(game_type: str) -> bool:
@@ -75,9 +79,11 @@ def list_live_spectatable_games(
     limit: int = 20,
     filter_mode: str = "",
     filter_scope: str = "",
+    game_mode: str = "",
 ) -> dict:
     vid = str(viewer_id or "").strip()
     req_game_norm = _normalize_game_type(game_type)
+    req_mode_norm = _normalize_game_mode(game_mode)
     req_player_id = str(player_id or "").strip()
     req_clan_id = str(clan_id or "").strip()
     scope = str(filter_mode or filter_scope or visibility_filter or "all").strip().lower()
@@ -98,8 +104,9 @@ def list_live_spectatable_games(
         col = game_database.base_db["game_play_history"]
     cursor = col.find({"is_finished": {"$ne": True}}).sort([("start_date", pymongo.DESCENDING)]).limit(200)
 
-    now = datetime.utcnow()
-    stale_cutoff = now - timedelta(hours=3)
+    now_utc = datetime.utcnow()
+    stale_cutoff_utc = now_utc - timedelta(hours=3)
+    stale_cutoff_local = datetime.now() - timedelta(hours=3)
 
     matched_games: list[dict] = []
 
@@ -112,13 +119,15 @@ def list_live_spectatable_games(
 
         if doc.get("is_finished") is True or doc.get("is_running") is False or doc.get("end_time") is not None:
             continue
-        if doc.get("is_spectatable") is False:
-            continue
 
         start_dt = doc.get("start_date") or doc.get("start_time")
-        updated_dt = doc.get("updated_at") or start_dt
-        if isinstance(updated_dt, datetime) and updated_dt < stale_cutoff:
-            continue
+        updated_dt = doc.get("updated_at")
+        if isinstance(updated_dt, datetime):
+            if updated_dt.replace(tzinfo=None) < stale_cutoff_utc:
+                continue
+        elif isinstance(start_dt, datetime):
+            if start_dt.replace(tzinfo=None) < stale_cutoff_local:
+                continue
 
         raw_uids = doc.get("user_ids") or doc.get("gamers") or []
         user_ids = [
@@ -126,6 +135,11 @@ def list_live_spectatable_games(
             for u in raw_uids
             if u
         ]
+        if not user_ids:
+            for k in ("user1_id", "user2_id", "user3_id", "user4_id"):
+                val = str(doc.get(k, "") or "").strip()
+                if val:
+                    user_ids.append(val)
         if not user_ids:
             continue
 
@@ -148,6 +162,10 @@ def list_live_spectatable_games(
             continue
 
         if req_game_norm and _normalize_game_type(active_gtype) != req_game_norm:
+            continue
+
+        doc_score_type = str(doc.get("game_score_type", "") or "").strip()
+        if req_mode_norm and _normalize_game_mode(doc_score_type) != req_mode_norm:
             continue
 
         allow_spec = doc.get("allow_spectators", True)
@@ -299,7 +317,7 @@ def list_live_spectatable_games(
             "game_type": active_gtype,
             "game_types": g_types or [active_gtype],
             "current_game_index": cur_idx,
-            "game_score_type": doc.get("game_score_type", 0),
+            "game_score_type": doc_score_type,
             "players": players_summary,
             "status": "in_progress",
             "spectator_count": max(0, spec_count),
@@ -343,6 +361,7 @@ def list_live_games(
     filter_scope: str | None = None,
     page: int = 1,
     limit: int = 20,
+    game_mode: str | None = None,
 ) -> dict:
     eff = filter_scope or visibility or "all"
     return list_live_spectatable_games(
@@ -353,6 +372,7 @@ def list_live_games(
         visibility_filter=str(eff),
         page=page,
         limit=limit,
+        game_mode=str(game_mode or ""),
     )
 
 

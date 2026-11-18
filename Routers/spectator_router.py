@@ -9,6 +9,8 @@ router = APIRouter(prefix="/spectator", tags=["spectator"])
 @router.get("/live-games")
 async def get_live_spectatable_games_endpoint(
     game_type: str = "",
+    game_mode: str = "",
+    game_score_type: str = "",
     player_id: str = "",
     clan_id: str = "",
     visibility: str = "all",
@@ -20,6 +22,7 @@ async def get_live_spectatable_games_endpoint(
     user=Depends(get_current_user_optional),
 ):
     effective_filter = filter_scope or filter or visibility
+    effective_mode = game_mode or game_score_type
     viewer_id = str(user["_id"]) if user and isinstance(user, dict) else ""
     return {
         "status": "success",
@@ -31,6 +34,7 @@ async def get_live_spectatable_games_endpoint(
             visibility_filter=effective_filter,
             page=page,
             limit=limit,
+            game_mode=effective_mode,
         ),
     }
 
