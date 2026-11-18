@@ -30,7 +30,7 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
         background_tasks.add_task(sms_panel.send_code_to_user, clean_phone)
         return {"result": True}
     else:
-        raise Network_Exeptions.raise403(details="بازیکن در بازی است و نمیتواند وارد شود")
+        raise Network_Exeptions.raise403(details="بازیکن در بازی است")
 
 
 @router.post("/code")
@@ -39,13 +39,24 @@ async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: s
     if not clean_phone:
         raise Network_Exeptions.raise422(details="شماره موبایل وارد شده معتبر نمی باشد")
 
+    from Entities.Api_Services import auth
+    if not auth.check_not_in_game(clean_phone):
+        raise Network_Exeptions.raise403(details="بازیکن در بازی است")
+
     if sms_panel.check_code(user_number=clean_phone, code=code):
-        from Entities.Api_Services import auth
         from Entities import Security
+        from Entities.Database import game_database
+        from Entities.Api_Services.social import realtime_bridge
+        existing_user = game_database.users_manager.read_user_by_phone(clean_phone)
+        prev_device_id = str(existing_user.get("device_id", "") or "") if isinstance(existing_user, dict) else ""
+
         user_data = auth.enter_user(clean_phone, device_id)
         if not user_data:
             raise Network_Exeptions.raise422(details="User could not be found or registered")
         print(user_data.get('device_id', ''))
+        # Terminate previous device session if signing in from a different device
+        if prev_device_id and prev_device_id != str(device_id):
+            realtime_bridge.force_logout_previous_device(str(user_data["_id"]), str(device_id))
         token = Security.create_access_token(
             data={'phone': clean_phone, 'id': user_data['_id'], 'device_id': device_id})
         print(await Security.extract_token(token))

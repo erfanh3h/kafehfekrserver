@@ -41,3 +41,58 @@ def emit_social_realtime(
             pass
 
     threading.Thread(target=_post, daemon=True).start()
+
+
+def check_user_in_game_realtime(user_id: str) -> bool | None:
+    """
+    Synchronous check against realtime backend RAM (`games`) to determine if `user_id`
+    is currently participating in an active match. Returns None if backend is unreachable.
+    """
+    uid = str(user_id or "").strip()
+    if not uid:
+        return False
+    try:
+        url = f"{BACKEND_INTERNAL_URL}/internal/user/in-game/{uid}"
+        req = urllib.request.Request(
+            url,
+            headers={"X-Internal-Secret": SECRET_KEY},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            raw = resp.read().decode("utf-8")
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict) and "in_game" in parsed:
+                return bool(parsed["in_game"])
+    except Exception:
+        return None
+    return None
+
+
+def force_logout_previous_device(user_id: str, new_device_id: str = "") -> None:
+    """
+    Notify realtime backend to emit Logout & disconnect all active sessions of `user_id`
+    when the account signs in on a new device.
+    """
+    uid = str(user_id or "").strip()
+    if not uid:
+        return
+
+    def _post():
+        try:
+            url = f"{BACKEND_INTERNAL_URL}/internal/auth/force-logout"
+            body = json.dumps({"user_id": uid, "new_device_id": str(new_device_id or "")}).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Internal-Secret": SECRET_KEY,
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=1.5) as resp:
+                resp.read()
+        except Exception:
+            pass
+
+    threading.Thread(target=_post, daemon=True).start()
