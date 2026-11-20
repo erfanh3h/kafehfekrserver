@@ -471,6 +471,7 @@ def respond_clan_join_request(actor_data: dict, request_id: str, action: str) ->
                 },
             ]
         )
+        game_database.notifications_manager.delete_by_payload(aid, "request_id", request_id)
         return {"request_id": request_id, "status": "rejected"}
 
     if act == "accept":
@@ -520,6 +521,7 @@ def respond_clan_join_request(actor_data: dict, request_id: str, action: str) ->
             room_updates_before=[{"user_id": target_uid, "join_clan": cid}],
             events=evs,
         )
+        game_database.notifications_manager.delete_by_payload(aid, "request_id", request_id)
         return {"request_id": request_id, "status": "accepted", "clan_id": cid, "user_id": target_uid}
 
     raise Network_Exeptions.raise422(details="عملیات نامعتبر است.")
@@ -590,6 +592,7 @@ def respond_clan_invitation(user_data: dict, invite_id: str, action: str) -> dic
 
     if act == "reject":
         game_database.clans_manager.update_clan_invitation_status(invite_id, "rejected")
+        game_database.notifications_manager.delete_by_payload(uid, "invite_id", invite_id)
         return {"invite_id": invite_id, "status": "rejected"}
 
     if act == "accept":
@@ -619,6 +622,7 @@ def respond_clan_invitation(user_data: dict, invite_id: str, action: str) -> dic
             room_updates_before=[{"user_id": uid, "join_clan": cid}],
             events=evs,
         )
+        game_database.notifications_manager.delete_by_payload(uid, "invite_id", invite_id)
         return {"invite_id": invite_id, "status": "accepted", "clan_id": cid}
 
     raise Network_Exeptions.raise422(details="عملیات نامعتبر است.")

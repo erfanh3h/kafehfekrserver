@@ -44,6 +44,18 @@ async def mark_all_notifications_read_endpoint(
     return {"result": notifications.mark_all_notifications_read(str(user["_id"]))}
 
 
+@router.post("/delete")
+async def delete_notification_endpoint(
+    request: Request,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    params = await extract_request_data(request)
+    notif_id = str(params.get("notification_id", "")).strip()
+    return {"result": notifications.delete_notification(str(user["_id"]), notif_id)}
+
+
+
 @router.post("/preferences")
 async def update_notification_prefs_endpoint(
     request: Request,

@@ -138,3 +138,17 @@ class NotificationsCollectionManager:
             {"$set": {"is_read": True}},
         )
         return getattr(res, "modified_count", 0)
+
+    def delete_notification(self, user_id: str, notification_id: str) -> bool:
+        res = self.notifications.delete_one(
+            {"_id": str(notification_id), "user_id": str(user_id)}
+        )
+        return getattr(res, "deleted_count", 0) > 0
+
+    def delete_by_payload(self, user_id: str, payload_key: str, payload_val: str) -> int:
+        res = self.notifications.delete_many({
+            "user_id": str(user_id),
+            f"payload.{payload_key}": str(payload_val)
+        })
+        return getattr(res, "deleted_count", 0)
+

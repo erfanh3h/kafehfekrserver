@@ -46,6 +46,14 @@ def mark_all_notifications_read(user_id: str) -> dict:
     return {"marked_count": cnt, "unread_count": 0}
 
 
+def delete_notification(user_id: str, notification_id: str) -> dict:
+    ok = game_database.notifications_manager.delete_notification(user_id, notification_id)
+    return {
+        "deleted": ok,
+        "unread_count": game_database.notifications_manager.get_unread_count(user_id),
+    }
+
+
 def update_notification_preferences(user_id: str, prefs: dict) -> dict:
     updated = game_database.notifications_manager.update_preferences(user_id, prefs)
     return {"preferences": updated}

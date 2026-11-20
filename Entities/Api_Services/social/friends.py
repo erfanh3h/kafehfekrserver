@@ -179,10 +179,12 @@ def respond_friend_request(user_id: str, request_id: str, action: str) -> dict:
                 },
             ]
         )
+        game_database.notifications_manager.delete_by_payload(uid, "request_id", request_id)
         return {"request_id": request_id, "status": "accepted", "friend_id": from_id}
 
     if act == "reject":
         game_database.friends_manager.update_request_status(request_id, "rejected")
+        game_database.notifications_manager.delete_by_payload(uid, "request_id", request_id)
         emit_social_realtime(
             events=[
                 {
