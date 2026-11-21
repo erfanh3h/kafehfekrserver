@@ -20,6 +20,11 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
     if not clean_phone or len(clean_phone) < 10:
         raise Network_Exeptions.raise422(details="شماره موبایل وارد شده معتبر نمی باشد")
 
+    from Entities.Database import game_database
+    existing_user = game_database.users_manager.read_user_by_phone(clean_phone)
+    if existing_user and (existing_user.get("is_active") is False or existing_user.get("is_banned") is True):
+        raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
+
     if auth.check_not_in_game(clean_phone):
         if static_functions.is_bot_phone(clean_phone):
             # For bot logins, do NOT send any real SMS!
@@ -48,6 +53,8 @@ async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: s
         from Entities.Database import game_database
         from Entities.Api_Services.social import realtime_bridge
         existing_user = game_database.users_manager.read_user_by_phone(clean_phone)
+        if existing_user and (existing_user.get("is_active") is False or existing_user.get("is_banned") is True):
+            raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
         prev_device_id = str(existing_user.get("device_id", "") or "") if isinstance(existing_user, dict) else ""
 
         user_data = auth.enter_user(clean_phone, device_id)

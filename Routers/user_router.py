@@ -6,10 +6,26 @@ router = APIRouter(prefix='', tags=['user'])
 
 
 @router.post("/check_match_allow")
-async def check_match_allow(version: str, authorization: str = Header(...), user=Depends(get_current_user)):
-    from Entities import Api_Services
-    config_data = Api_Services.get_config()
-    return {"result": True}
+async def check_match_allow(version: str = Form(""), authorization: str = Header(...), user=Depends(get_current_user)):
+    from Entities import Api_Services, Network_Exeptions
+    from Commons.static_functions import is_version_allowed
+    config_data = Api_Services.get_config() or {}
+    allowed_ver = str(config_data.get("allowed_version", "2.0.0")).strip()
+    latest_ver = str(config_data.get("latest_version", "2.0.0")).strip()
+    is_queue_open = bool(config_data.get("is_queue_open", True))
+
+    if version and allowed_ver and not is_version_allowed(version, allowed_ver):
+        raise Network_Exeptions.raise403(details=f"نسخه برنامه شما ({version}) قدیمی است. لطفاً برای بازی، برنامه را به نسخه {allowed_ver} به‌روزرسانی کنید.")
+
+    if not is_queue_open:
+        raise Network_Exeptions.raise403(details="صف ورود به بازی موقتاً توسط مدیریت بسته شده است.")
+
+    return {
+        "result": True,
+        "allowed_version": allowed_ver,
+        "latest_version": latest_ver,
+        "is_queue_open": is_queue_open,
+    }
 
 
 @router.get("/my-data")

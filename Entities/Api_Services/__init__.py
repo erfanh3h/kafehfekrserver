@@ -16,8 +16,10 @@ async def get_current_user(authorization: str = Header(default="")):
         raise Network_Exeptions.raise401()
     from Entities.Database import game_database
     user = game_database.users_manager.read_user(user_token_data['id'])
-    if user is None or user['device_id'] != user_token_data['device_id']:
+    if user is None or user.get('device_id') != user_token_data.get('device_id'):
         raise Network_Exeptions.raise401()
+    if user.get("is_active") is False or user.get("is_banned") is True:
+        raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
     else:
         return user
 
@@ -33,6 +35,8 @@ async def get_current_user_optional(authorization: str = Header(default="")):
         from Entities.Database import game_database
         user = game_database.users_manager.read_user(user_token_data['id'])
         if user is None or user.get('device_id') != user_token_data.get('device_id'):
+            return None
+        if user.get("is_active") is False or user.get("is_banned") is True:
             return None
         return user
     except Exception:

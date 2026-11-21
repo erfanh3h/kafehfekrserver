@@ -1,6 +1,6 @@
 # Cafe Fekr — REST API Server (`kafehfekrserver`)
 
-The **REST API, authentication, social community, player economy, and match discovery service** for **Cafe Fekr (کافه فکر)**. It manages user registration via SMS OTP (IPPanel), profile personalization, friend networks, clan governance and friendly challenges, direct messaging, in-game notifications, **live spectatable match discovery**, store transactions (CafeBazaar & Myket), global leaderboards, automated MongoDB backups, and administrative operations.
+The **REST API, authentication, social community, player economy, and match discovery service** for **Cafe Fekr (کافه فکر)**. It manages user registration via SMS OTP (IPPanel), profile personalization, 20 collectible avatar frames, friend networks, clan governance and friendly challenges, direct messaging, in-game notifications, **live spectatable match discovery**, real-time bridging to the Socket.IO game backend, store transactions (CafeBazaar & Myket), global leaderboards, automated MongoDB backups, and administrative operations.
 
 ---
 
@@ -14,8 +14,9 @@ The **REST API, authentication, social community, player economy, and match disc
 | **Authentication** | Bearer JWT (HS256) with Device ID verification |
 | **SMS Gateway** | IPPanel API (Pattern: `ccnmmdqhf3hb0h7`, Originator: `+983000505`) with bot account bypass |
 | **Database** | MongoDB (`KafehFekrDB`) |
-| **Companion Realtime Service** | `kafehfekrbackend` (Port `5000`) |
+| **Realtime Bridge** | `RealtimeBridge` (Async HTTP-to-Socket.IO webhook events to port 5000) |
 | **Mounted Routers** | `auth`, `user`, `social`, `clans`, `messages`, `notifications`, `spectator`, `general`, `admin` |
+| **Static Assets** | 20 Avatar Frame PNGs mounted at `/static/avatar_frames/` |
 
 ---
 
@@ -28,6 +29,8 @@ kafehfekrserver/
 ├── requirements.txt            # Python dependencies (fastapi, pymongo, ippanel, etc.)
 ├── .dockerignore / .gitignore   # Ignored files
 ├── Backup/                     # Persistent local database backup storage
+├── static/                     # Static media assets
+│   └── avatar_frames/          # 20 Collectible avatar frame overlays (1.png .. 20.png)
 │
 ├── Commons/                    # Utility functions and shared constants
 │   ├── app_consts.py           # Application-wide constants (admin_token)
@@ -35,9 +38,9 @@ kafehfekrserver/
 │
 ├── Entities/                   # Business logic and external service integrations
 │   ├── Api_Services/           # Business handlers for auth, user queries, games admin
-│   │   ├── auth.py             # User lookup, user creation, profile completion
+│   │   ├── auth.py             # User lookup, user creation, profile completion, realtime sync
 │   │   ├── game.py             # Game history inspection and admin cleanup
-│   │   ├── user.py             # Profile data, coin balance, leaderboards, IAP validation
+│   │   ├── user.py             # Profile data, avatar frames, coin balance, leaderboards, IAP
 │   │   ├── __init__.py         # Token extractor, get_current_user dependency, app config
 │   │   └── social/             # Social subsystem business logic
 │   │       ├── clans.py        # Clan creation, directory, roster, friendly challenges lifecycle
@@ -48,6 +51,7 @@ kafehfekrserver/
 │   │       ├── moderation.py   # Player blocking and reporting
 │   │       ├── notifications.py# Notification listing and preferences
 │   │       ├── profiles.py     # Public player profile inspection & cosmetic updates
+│   │       ├── realtime_bridge.py # HTTP webhook bridge to Socket.IO backend on port 5000
 │   │       ├── security.py     # Social input validation and rate limiting
 │   │       └── spectator.py    # Live games discovery, query filters, and privacy enforcement
 │   ├── Database/               # MongoDB collections and automated backup logic
@@ -56,7 +60,7 @@ kafehfekrserver/
 │   │   ├── game_history_collection.py      # Individual round records
 │   │   ├── game_play_history_collection.py # Match series records
 │   │   ├── purchases_collection.py         # IAP transaction history
-│   │   ├── users_collection.py             # User profile, wallet, session, privacy flags
+│   │   ├── users_collection.py             # User profile, wallet, session, privacy, profile_frame
 │   │   ├── user_history_collection.py      # Aggregated per-game user stats
 │   │   ├── __init__.py         # Database connection and collection initialization
 │   │   └── social/             # Social collections
@@ -84,7 +88,7 @@ kafehfekrserver/
     ├── notification_router.py  # In-game notification management (/notifications/*)
     ├── social_router.py        # Friends, profile customization, blocks, reports (/social/*)
     ├── spectator_router.py     # Live games discovery & match summaries (/spectator/*)
-    └── user_router.py          # User profile, match history, and cosmetic update endpoints
+    └── user_router.py          # User profile, avatar frames, match history, cosmetic endpoints
 ```
 
 ---
@@ -110,6 +114,7 @@ kafehfekrserver/
 | `GET` | `/my-game-history` | JWT | `Authorization: <token>` | Returns the user's last 50 matches with round-by-round results and opponent details. |
 | `GET` | `/user-data/{user_id}` | None | `user_id` (Path) | Returns public profile data and aggregate history of a specific user. |
 | `POST` | `/update-image` | JWT | `image` (int, Form) | Updates the player's active avatar icon. |
+| `POST` | `/update-avatar-frame` | JWT | `frame_id` (int, Form / JSON) | Equips one of the 20 collectible avatar frames (`1..20`). |
 | `POST` | `/update-username` | JWT | `username` (Form) | Changes the player's display username. |
 | `POST` | `/check_match_allow` | JWT | `version` (Query) | Verifies whether the client version is permitted to queue into matches. |
 
@@ -237,39 +242,11 @@ Protected via query parameter `token` matching `admin_token` (`akbarjoojehdeheba
 
 ---
 
-## 4. Authentication & Security Flow
+## 4. Realtime Bridge (`Entities/Api_Services/social/realtime_bridge.py`)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor C as Client (Godot / Flutter)
-    participant S as Server (/enter & /code)
-    participant SMS as IPPanel Gateway
-    participant DB as MongoDB
-
-    C->>S: POST /enter {phone: "0912..."}
-    alt Is Bot / Test Number (is_bot_phone)
-        Note over S: Set master code 1234 in memory (No SMS sent)
-        S-->>C: {"result": true}
-    else Standard Player Number
-        S->>SMS: Send OTP SMS via IPPanel pattern ccnmmdqhf3hb0h7
-        S-->>C: {"result": true}
-    end
-
-    C->>S: POST /code {phone, code, device_id}
-    Note over S: Verify OTP (5-minute TTL)
-    alt Code Valid
-        S->>DB: Find or create user document
-        Note over S: Generate JWT Token (HS256)<br/>Payload: {phone, id, device_id}
-        S-->>C: {"user_data": {...}, "token": "..."}
-    else Code Invalid / Expired
-        S-->>C: 422 Unprocessable Entity
-    end
-```
-
-### Security Notes
-- **Device Lock Enforcement:** The JWT payload contains `device_id`. Requests validated by `get_current_user` verify that the request's device ID matches the user's recorded session.
-- **Spectator Privacy Enforcement:** The `allow_spectators` field in user privacy records (`everyone`, `friends_only`, `clan_only`, `nobody`) is evaluated before returning matches in `/spectator/live-games`.
+To ensure seamless synchronization between REST actions and the realtime Socket.IO backend:
+- When a REST call completes (e.g. friend request accepted, clan invitation sent, notification dispatched), `RealtimeBridge` sends an async internal notification to the backend (`http://backend:5000/internal/...` or shared event bus).
+- The backend immediately delivers Socket.IO events (`SocialNotification`, `SocialFriendEvent`, `SocialClanEvent`) to connected sockets on the `/social` namespace without client polling.
 
 ---
 
