@@ -111,9 +111,19 @@ def sanitize_public_user_summary(user_doc: dict | None, presence_doc: dict | Non
 
     pres = presence_doc or {}
     st = str(pres.get("status", "offline"))
+    is_bot = bool(
+        user_doc.get("is_bot", False)
+        or user_doc.get("bot", False)
+        or str(user_doc.get("device_id", "")).startswith("bot_")
+        or str(user_doc.get("phone", "")).startswith(("bot_", "test_bot"))
+        or uid.startswith(("bot_", "test_bot"))
+        or uid == "3goBRU"
+        or str(user_doc.get("type", "")).lower() == "bot"
+    )
     out = {
         "user_id": uid,
         "_id": uid,
+        "is_bot": is_bot,
         "username": str(user_doc.get("username", "بازیکن") or "بازیکن"),
         "image": int(user_doc.get("image", 0) or 0),
         "score": score,

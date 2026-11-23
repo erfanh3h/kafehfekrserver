@@ -10,7 +10,7 @@ from Entities.Api_Services.social.realtime_bridge import emit_social_realtime
 
 
 def _attach_user_summaries(user_ids: list[str]) -> dict[str, dict]:
-    clean_ids = list({str(u) for u in user_ids if u and not str(u).startswith("bot_")})
+    clean_ids = list({str(u) for u in user_ids if u and not str(u).startswith(("bot_", "test_bot")) and str(u) != "3goBRU"})
     if not clean_ids:
         return {}
     users = game_database.users_manager.read_users(clean_ids)
@@ -18,6 +18,16 @@ def _attach_user_summaries(user_ids: list[str]) -> dict[str, dict]:
     result: dict[str, dict] = {}
     for u in users:
         uid = str(u["_id"])
+        if (
+            u.get("is_bot") is True
+            or u.get("bot") is True
+            or str(u.get("device_id", "")).startswith("bot_")
+            or str(u.get("phone", "")).startswith(("bot_", "test_bot"))
+            or str(u.get("username", "")).lower().startswith(("bot_", "bot "))
+            or str(u.get("type", "")).lower() == "bot"
+            or uid == "3goBRU"
+        ):
+            continue
         mem = game_database.clans_manager.get_user_membership(uid)
         clan_info = None
         if mem:
@@ -312,7 +322,10 @@ def get_recently_played_and_suggestions(user_id: str, limit: int = 15) -> dict:
     recent_out = []
     for rid in recent_ids:
         if rid in summaries:
-            d = dict(summaries[rid])
+            s_item = summaries[rid]
+            if s_item.get("is_bot"):
+                continue
+            d = dict(s_item)
             d["is_friend"] = rid in my_friends
             d["request_sent"] = rid in outgoing_reqs
             recent_out.append(d)
@@ -320,7 +333,10 @@ def get_recently_played_and_suggestions(user_id: str, limit: int = 15) -> dict:
     suggested_out = []
     for sid in suggested_ids:
         if sid in summaries:
-            d = dict(summaries[sid])
+            s_item = summaries[sid]
+            if s_item.get("is_bot"):
+                continue
+            d = dict(s_item)
             d["mutual_friends"] = mutual_counts.get(sid, 0)
             d["request_sent"] = sid in outgoing_reqs
             suggested_out.append(d)
