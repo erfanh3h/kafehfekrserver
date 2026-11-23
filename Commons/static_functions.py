@@ -132,12 +132,82 @@ def is_version_allowed(current_ver: str, allowed_ver: str) -> bool:
     return parse_version(current_ver) >= parse_version(allowed_ver)
 
 
-def is_user_banned(user_data: dict | None) -> bool:
-    """Returns True if the user account is inactive or flagged as banned."""
+def _parse_utc_datetime(val):
+    """Parses a datetime or ISO string into a timezone-aware UTC datetime, or None."""
+    from datetime import datetime, timezone
+    if val is None or val == "":
+        return None
+    if isinstance(val, datetime):
+        return val.replace(tzinfo=timezone.utc) if val.tzinfo is None else val.astimezone(timezone.utc)
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return None
+        try:
+            if s.endswith("Z"):
+                s = s[:-1] + "+00:00"
+            dt = datetime.fromisoformat(s)
+            return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+        except Exception:
+            return None
+    return None
+
+
+def is_ban_expired(user_data: dict | None) -> bool:
+    """Returns True if the user has a temporary ban whose ban_until timestamp is in the past."""
     if not user_data or not isinstance(user_data, dict):
         return False
-    if user_data.get("is_active") is False:
-        return True
-    if user_data.get("is_banned") is True:
-        return True
-    return False
+    ban_until = _parse_utc_datetime(user_data.get("ban_until"))
+    if ban_until is None:
+        return False
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc) >= ban_until
+
+
+def is_user_banned(user_data: dict | None) -> bool:
+    """Returns True if the user account is inactive or flagged as banned (respecting ban_until expiry)."""
+    if not user_data or not isinstance(user_data, dict):
+        return False
+    flagged = (user_data.get("is_active") is False) or (user_data.get("is_banned") is True)
+    if not flagged:
+        return False
+    if is_ban_expired(user_data):
+        return False
+    return True
+
+
+def check_ban_and_auto_unban(user_data: dict | None, users_manager=None) -> bool:
+    """Checks ban status and auto-clears expired temporary bans in MongoDB when encountered."""
+    if not user_data or not isinstance(user_data, dict):
+        return False
+    flagged = (user_data.get("is_active") is False) or (user_data.get("is_banned") is True)
+    if not flagged:
+        return False
+    if is_ban_expired(user_data):
+        uid = user_data.get("_id")
+        if uid and users_manager is not None and hasattr(users_manager, "collection"):
+            try:
+                users_manager.collection.update_one(
+                    {"_id": uid},
+                    {
+                        "$set": {"is_active": True, "is_banned": False},
+                        "$unset": {"ban_until": "", "ban_reason": "", "banned_at": ""},
+                    },
+                )
+            except Exception as e:
+                print(f"[auto_unban] Failed to clear expired ban for {uid}: {e}")
+        user_data["is_active"] = True
+        user_data["is_banned"] = False
+        user_data.pop("ban_until", None)
+        return False
+    return True
+
+
+def get_maintenance_block(config_data: dict | None) -> str | None:
+    """Returns maintenance message if maintenance mode is active, otherwise None."""
+    if not isinstance(config_data, dict):
+        return None
+    if bool(config_data.get("maintenance_mode", False)):
+        msg = str(config_data.get("maintenance_message") or "").strip()
+        return msg or "سرور در حال به‌روزرسانی و تعمیرات است. لطفاً دقایقی دیگر تلاش کنید."
+    return None

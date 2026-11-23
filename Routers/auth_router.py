@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Form, Header, Depends
+from fastapi import APIRouter, BackgroundTasks, Form, Header, Depends, HTTPException
 
 from Entities import Network_Exeptions
 from Entities.Api_Services import get_current_user
@@ -21,8 +21,14 @@ async def enter_user(background_tasks: BackgroundTasks, phone: str = Form(...)):
         raise Network_Exeptions.raise422(details="شماره موبایل وارد شده معتبر نمی باشد")
 
     from Entities.Database import game_database
+    if not static_functions.is_bot_phone(clean_phone):
+        config_data = game_database.config_manager.read_config() or {}
+        maint_msg = static_functions.get_maintenance_block(config_data)
+        if maint_msg:
+            raise HTTPException(status_code=503, detail=maint_msg)
+
     existing_user = game_database.users_manager.read_user_by_phone(clean_phone)
-    if existing_user and (existing_user.get("is_active") is False or existing_user.get("is_banned") is True):
+    if existing_user and static_functions.check_ban_and_auto_unban(existing_user, game_database.users_manager):
         raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
 
     if auth.check_not_in_game(clean_phone):
@@ -44,16 +50,22 @@ async def enter_code(phone: str = Form(...), code: str = Form(...), device_id: s
     if not clean_phone:
         raise Network_Exeptions.raise422(details="شماره موبایل وارد شده معتبر نمی باشد")
 
+    from Entities.Database import game_database
+    if not static_functions.is_bot_phone(clean_phone):
+        config_data = game_database.config_manager.read_config() or {}
+        maint_msg = static_functions.get_maintenance_block(config_data)
+        if maint_msg:
+            raise HTTPException(status_code=503, detail=maint_msg)
+
     from Entities.Api_Services import auth
     if not auth.check_not_in_game(clean_phone):
         raise Network_Exeptions.raise403(details="بازیکن در بازی است")
 
     if sms_panel.check_code(user_number=clean_phone, code=code):
         from Entities import Security
-        from Entities.Database import game_database
         from Entities.Api_Services.social import realtime_bridge
         existing_user = game_database.users_manager.read_user_by_phone(clean_phone)
-        if existing_user and (existing_user.get("is_active") is False or existing_user.get("is_banned") is True):
+        if existing_user and static_functions.check_ban_and_auto_unban(existing_user, game_database.users_manager):
             raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
         prev_device_id = str(existing_user.get("device_id", "") or "") if isinstance(existing_user, dict) else ""
 

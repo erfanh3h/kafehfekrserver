@@ -39,3 +39,18 @@ async def say_hello(product_id: str = Form(...), market_type: str = Form(...), t
                     authorization: str = Header(...), user_data=Depends(get_current_user)):
     from Entities.Api_Services import user
     return {"result": user.purchase(user_data['_id'], product_id, market_type, token, user_data['coin'])}
+
+
+@router.post("/redeem-promo")
+async def redeem_promo_code(
+    code: str = Form(...),
+    authorization: str = Header(...),
+    user_data=Depends(get_current_user),
+):
+    from Entities.Database import game_database
+    result = game_database.promos_manager.redeem_code(
+        user_id=str(user_data["_id"]),
+        raw_code=code,
+        users_collection=game_database.users_manager.collection,
+    )
+    return {"result": result}

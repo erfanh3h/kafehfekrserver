@@ -14,6 +14,7 @@ import pymongo
 from Entities.Database.config_collection import ConfigCollectionManager
 from Entities.Database.game_history_collection import GameHistoryCollectionManager
 from Entities.Database.game_play_history_collection import GamePlayHistoryCollectionManager
+from Entities.Database.promo_collection import PromoCollectionManager
 from Entities.Database.purchases_collection import PurchasesCollectionManager
 from Entities.Database.user_history_collection import UserHistoryCollectionManager
 from Entities.Database.users_collection import UsersCollectionManager
@@ -30,6 +31,10 @@ class DataBaseManager:
         self.game_history_manager = GameHistoryCollectionManager(self.base_db['game_history'])
         self.purchase_manager = PurchasesCollectionManager(self.base_db['purchases'])
         self.config_manager = ConfigCollectionManager(self.base_db['config'])
+        self.promos_manager = PromoCollectionManager(
+            self.base_db["promo_codes"],
+            self.base_db["promo_redemptions"],
+        )
         self.friends_manager = FriendsCollectionManager(
             self.base_db["friendships"],
             self.base_db["friend_requests"],

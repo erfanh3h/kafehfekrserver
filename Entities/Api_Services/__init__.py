@@ -9,6 +9,7 @@ from Entities import Network_Exeptions
 async def get_current_user(authorization: str = Header(default="")):
     from Entities import Security
     from Entities import Network_Exeptions
+    from Commons.static_functions import check_ban_and_auto_unban
     if not authorization or authorization.strip() in ("", "null", "undefined"):
         raise Network_Exeptions.raise401()
     user_token_data = await Security.extract_token(authorization)
@@ -18,7 +19,7 @@ async def get_current_user(authorization: str = Header(default="")):
     user = game_database.users_manager.read_user(user_token_data['id'])
     if user is None or user.get('device_id') != user_token_data.get('device_id'):
         raise Network_Exeptions.raise401()
-    if user.get("is_active") is False or user.get("is_banned") is True:
+    if check_ban_and_auto_unban(user, game_database.users_manager):
         raise Network_Exeptions.raise403(details="حساب کاربری شما توسط مدیریت مسدود شده است.")
     else:
         return user
@@ -29,6 +30,7 @@ async def get_current_user_optional(authorization: str = Header(default="")):
         return None
     try:
         from Entities import Security
+        from Commons.static_functions import check_ban_and_auto_unban
         user_token_data = await Security.extract_token(authorization)
         if user_token_data is None:
             return None
@@ -36,7 +38,7 @@ async def get_current_user_optional(authorization: str = Header(default="")):
         user = game_database.users_manager.read_user(user_token_data['id'])
         if user is None or user.get('device_id') != user_token_data.get('device_id'):
             return None
-        if user.get("is_active") is False or user.get("is_banned") is True:
+        if check_ban_and_auto_unban(user, game_database.users_manager):
             return None
         return user
     except Exception:
