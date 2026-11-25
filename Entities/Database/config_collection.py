@@ -7,7 +7,7 @@ class ConfigCollectionManager:
 
     def create_config(self):
         data = {'_id': 1, "latest_version": "0.0.1", "allowed_version": "0.0.1", "is_queue_open": True,
-                "update_finish_date": datetime.now()}
+                "update_finish_date": datetime.now(), "windows_link": ""}
         self.collection.insert_one(data)
         return data
 
@@ -15,7 +15,8 @@ class ConfigCollectionManager:
         data = self.collection.find_one({})
         return data
 
-    def update_config(self, latest_version=None, allowed_version=None, is_queue_open=None, update_finish_date=None):
+    def update_config(self, latest_version=None, allowed_version=None, is_queue_open=None, update_finish_date=None,
+                      windows_link=None):
         update_data = {}
         if latest_version is not None:
             update_data['latest_version'] = latest_version
@@ -25,4 +26,6 @@ class ConfigCollectionManager:
             update_data['is_queue_open'] = is_queue_open
         if update_finish_date is not None:
             update_data['update_finish_date'] = update_finish_date
+        if windows_link is not None:
+            update_data['windows_link'] = windows_link
         self.collection.find_one_and_update({}, {'$set': update_data})
