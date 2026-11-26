@@ -47,7 +47,11 @@ async def get_current_user_optional(authorization: str = Header(default="")):
 
 def get_config():
     from Entities.Database import game_database
-    return game_database.config_manager.read_config()
+    from Entities.Games.classic_rank_config import get_classic_rank_config
+    cfg = game_database.config_manager.read_config()
+    result = dict(cfg) if isinstance(cfg, dict) else {}
+    result["classic_rank_config"] = get_classic_rank_config()
+    return result
 
 
 def set_config_let_queue(token, value: bool, hour: int, minute: int):

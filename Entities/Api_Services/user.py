@@ -38,6 +38,8 @@ def user_game_histories(user_id):
                 "date": r_date.isoformat() if hasattr(r_date, 'isoformat') else str(r_date or ''),
             })
 
+        raw_ai_level = g.get('ai_level')
+        ai_level_val = int(raw_ai_level) if raw_ai_level in (1, 2, 3, "1", "2", "3") else None
         users_info = g.get('users_info', [])
         if not users_info:
             user_ids = g.get('user_ids', [])
@@ -57,7 +59,7 @@ def user_game_histories(user_id):
                         "name": "ربات هوشمند",
                         "image": 1,
                         "score": 1000,
-                        "level": 1,
+                        "level": ai_level_val or 2,
                         "xp": 0,
                         "coins": 0,
                     })
@@ -160,6 +162,7 @@ def user_game_histories(user_id):
             "game_types": g.get("game_types", []),
             "game_type": first_game,
             "game_score_type": g.get("game_score_type", "Rank"),
+            "ai_level": ai_level_val,
             "is_finished": bool(g.get("is_finished", False)),
             "start_date": s_date.isoformat() if hasattr(s_date, 'isoformat') else str(s_date or ''),
             "finish_date": f_date.isoformat() if hasattr(f_date, 'isoformat') else str(f_date or ''),

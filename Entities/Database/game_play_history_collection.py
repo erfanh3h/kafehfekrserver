@@ -1,7 +1,7 @@
 from datetime import datetime
 
 
-def create_game_play_history_json(game_play_id, user_idis, game_types, game_score_type, users_info=None) -> dict:
+def create_game_play_history_json(game_play_id, user_idis, game_types, game_score_type, users_info=None, ai_level=None) -> dict:
     u_ids = [str(u) for u in user_idis] if isinstance(user_idis, (list, tuple)) else [str(user_idis)]
     create_dict = {
         '_id': str(game_play_id),
@@ -15,6 +15,8 @@ def create_game_play_history_json(game_play_id, user_idis, game_types, game_scor
         'winner_list': [],
         'user_scores': [],
     }
+    if ai_level is not None:
+        create_dict['ai_level'] = int(ai_level)
     for index, user_id in enumerate(u_ids):
         create_dict[f'user{index + 1}_id'] = user_id
     return create_dict
@@ -24,8 +26,8 @@ class GamePlayHistoryCollectionManager:
     def __init__(self, collection):
         self.collection = collection
 
-    def create_game_play_history(self, game_play_id, user_idis, game_types, game_score_type, users_info=None):
-        game_data = create_game_play_history_json(game_play_id, user_idis, game_types, game_score_type, users_info=users_info)
+    def create_game_play_history(self, game_play_id, user_idis, game_types, game_score_type, users_info=None, ai_level=None):
+        game_data = create_game_play_history_json(game_play_id, user_idis, game_types, game_score_type, users_info=users_info, ai_level=ai_level)
         self.collection.insert_one(game_data)
         return game_data
 

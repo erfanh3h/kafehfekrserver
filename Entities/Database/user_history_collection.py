@@ -6,6 +6,9 @@ from Entities.Games.game_types import GameTypesEnum
 MODE_HISTORY_KEYS = [
     "win_rank", "draw_rank", "lose_rank",
     "win_classic_rank", "draw_classic_rank", "lose_classic_rank",
+    "win_classic_rank_lvl1", "draw_classic_rank_lvl1", "lose_classic_rank_lvl1",
+    "win_classic_rank_lvl2", "draw_classic_rank_lvl2", "lose_classic_rank_lvl2",
+    "win_classic_rank_lvl3", "draw_classic_rank_lvl3", "lose_classic_rank_lvl3",
     "win_multi_rank", "draw_multi_rank", "lose_multi_rank",
     "rank1_multi_rank", "rank2_multi_rank", "rankn_multi_rank",
 ]
