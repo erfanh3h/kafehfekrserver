@@ -51,7 +51,27 @@ def get_rivalry_summary(viewer_id: str, opponent_user_id: str) -> dict:
             "can_add_friend": False,
         }
 
-    opp_doc = game_database.users_manager.read_user(oid) or {}
+    opp_doc = game_database.users_manager.read_user(oid)
+    if not opp_doc or bool(opp_doc.get("is_bot", False)):
+        is_bot_flag = bool(opp_doc and opp_doc.get("is_bot", False))
+        return {
+            "eligible": False,
+            "is_bot": is_bot_flag,
+            "opponent_user_id": oid,
+            "opponent_username": "",
+            "opponent_image": 0,
+            "opponent_profile_frame": 1,
+            "my_wins": 0,
+            "opp_wins": 0,
+            "draws": 0,
+            "total_matches": 0,
+            "is_arch_rival": False,
+            "last_game_type": "",
+            "friend_status": "bot" if is_bot_flag else "unknown",
+            "incoming_request_id": "",
+            "can_add_friend": False,
+        }
+
     h2h = game_database.rivals_manager.get_head_to_head(
         vid,
         oid,
