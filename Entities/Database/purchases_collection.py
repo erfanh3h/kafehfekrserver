@@ -16,6 +16,23 @@ def create_purchases_json(user_id, product_id, market_type, token) -> dict:
 class PurchasesCollectionManager:
     def __init__(self, collection):
         self.collection = collection
+        self.ensure_indexes()
+
+    def ensure_indexes(self):
+        try:
+            self.collection.create_index([("market_type", pymongo.ASCENDING), ("token", pymongo.ASCENDING)])
+            self.collection.create_index([("user_id", pymongo.ASCENDING), ("date", pymongo.DESCENDING)])
+        except Exception:
+            pass
+
+    def has_purchase_token(self, market_type: str, token: str) -> bool:
+        tok = str(token or "").strip()
+        if not tok:
+            return False
+        try:
+            return self.collection.find_one({"market_type": str(market_type), "token": tok}, {"_id": 1}) is not None
+        except Exception:
+            return False
 
     def create_purchase(self, user_id, product_id, market_type, token):
         user_data = create_purchases_json(user_id, product_id, market_type, token)
@@ -24,11 +41,11 @@ class PurchasesCollectionManager:
 
     def read_user_purchases(self, user_id):
         try:
-            query = {'_id': user_id}
+            query = {'user_id': user_id}
             user_Data = self.collection.find(query)
-            return user_Data
-        except:
-            return None
+            return list(user_Data)
+        except Exception:
+            return []
 
     def update_purchase(self, user_id, purchase_id):
         pass

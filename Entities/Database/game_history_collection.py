@@ -1,4 +1,5 @@
 from datetime import datetime
+import pymongo
 
 
 def create_game_history_json(game_id, game_play_id, user_idis, game_type, game_score_type, winner_id, users_info=None) -> dict:
@@ -32,6 +33,14 @@ def create_game_history_json(game_id, game_play_id, user_idis, game_type, game_s
 class GameHistoryCollectionManager:
     def __init__(self, collection):
         self.collection = collection
+        self.ensure_indexes()
+
+    def ensure_indexes(self):
+        try:
+            self.collection.create_index([("game_play_id", pymongo.ASCENDING), ("date", pymongo.ASCENDING)])
+            self.collection.create_index([("user_ids", pymongo.ASCENDING), ("date", pymongo.DESCENDING)])
+        except Exception:
+            pass
 
     def create_game_history(self, game_id, game_play_id, user_idis, game_type, game_score_type, winner_id, users_info=None):
         game_data = create_game_history_json(game_id, game_play_id, user_idis, game_type, game_score_type, winner_id, users_info=users_info)
@@ -51,6 +60,21 @@ class GameHistoryCollectionManager:
             return list(self.collection.find({'game_play_id': str(game_play_id)}).sort('date', 1))
         except Exception:
             return []
+
+    def read_rounds_by_game_play_ids(self, game_play_ids: list[str]) -> dict[str, list]:
+        ids = [str(gid) for gid in (game_play_ids or []) if gid]
+        if not ids:
+            return {}
+        grouped: dict[str, list] = {gid: [] for gid in ids}
+        try:
+            cursor = self.collection.find({'game_play_id': {'$in': ids}}).sort('date', 1)
+            for doc in cursor:
+                gid = str(doc.get('game_play_id', ''))
+                if gid in grouped:
+                    grouped[gid].append(doc)
+        except Exception:
+            pass
+        return grouped
 
     def read_user_games_histories(self, user_id):
         result = []

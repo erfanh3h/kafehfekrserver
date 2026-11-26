@@ -24,6 +24,7 @@ def create_user_history_json(user_id) -> dict:
 class UserHistoryCollectionManager:
     def __init__(self, collection):
         self.collection = collection
+        self.ensure_indexes()
         self.mode_keys: list[str] = list(MODE_HISTORY_KEYS)
         self.game_types: list[str] = []
         for game_type in [game.value for game in GameTypesEnum]:
@@ -37,6 +38,12 @@ class UserHistoryCollectionManager:
             self.game_types.append(f'{game_type.lower()}_rank1')
             self.game_types.append(f'{game_type.lower()}_rank2')
             self.game_types.append(f'{game_type.lower()}_rankn')
+
+    def ensure_indexes(self):
+        try:
+            self.collection.create_index([("win_rank", pymongo.DESCENDING)])
+        except Exception:
+            pass
 
     def create_user_history(self, user_id):
         if str(user_id).startswith("bot_") or str(user_id).startswith("test_bot"):
@@ -53,7 +60,7 @@ class UserHistoryCollectionManager:
             query = {'_id': user_id}
             user_Data = self.collection.find_one(query)
             return user_Data
-        except:
+        except Exception:
             return None
 
     def read_user_global_history(self, user_id):
@@ -61,7 +68,7 @@ class UserHistoryCollectionManager:
             query = {'_id': user_id}
             user_Data = self.collection.find_one(query)
             return user_Data
-        except:
+        except Exception:
             return None
 
     def read_ranking_users_by_win(self):

@@ -37,7 +37,7 @@ class SMSPanel:
         phone_clean = static_functions.clean_phone_number(user_number)
         if phone_clean:
             with self._lock:
-                self.numbers_to_codes[phone_clean] = (code, datetime.now())
+                self.numbers_to_codes[phone_clean] = (code, datetime.now(), 0)
 
     def send_code_to_user(self, user_number):
         phone_clean = static_functions.clean_phone_number(user_number)
@@ -54,7 +54,7 @@ class SMSPanel:
         try:
             code = static_functions.create_random_code()
             with self._lock:
-                self.numbers_to_codes[phone_clean] = (code, datetime.now())
+                self.numbers_to_codes[phone_clean] = (code, datetime.now(), 0)
 
             print(f"[SMSPanel] Sending OTP code {code} to {phone_clean}...")
             res_id = self.sms_panel.send_pattern(
@@ -87,7 +87,8 @@ class SMSPanel:
                     print(f"[SMSPanel] No pending OTP found for {phone_clean}")
                     return False
 
-                saved_code, send_time = entry
+                saved_code, send_time = entry[0], entry[1]
+                attempts = entry[2] if len(entry) >= 3 else 0
                 if (datetime.now() - send_time).total_seconds() > 5 * 60:
                     self.numbers_to_codes.pop(phone_clean, None)
                     print(f"[SMSPanel] OTP expired for {phone_clean}")
@@ -97,9 +98,14 @@ class SMSPanel:
                     self.numbers_to_codes.pop(phone_clean, None)
                     print(f"[SMSPanel] OTP verified successfully for {phone_clean}")
                     return True
+                attempts += 1
+                if attempts >= 5:
+                    self.numbers_to_codes.pop(phone_clean, None)
+                    print(f"[SMSPanel] OTP invalidated after too many failed attempts for {phone_clean}")
                 else:
+                    self.numbers_to_codes[phone_clean] = (saved_code, send_time, attempts)
                     print(f"[SMSPanel] OTP mismatch for {phone_clean}: expected {saved_code}, got {code_clean}")
-                    return False
+                return False
         except Exception as e:
             print(f"[SMSPanel] Error checking code for {user_number}: {e}")
             return False

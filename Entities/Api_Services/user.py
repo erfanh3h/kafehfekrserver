@@ -24,9 +24,34 @@ def user_game_histories(user_id):
     result = []
     user_cache = {}
 
+    # Batch-load rounds for all games in one query instead of N+1 queries
+    game_ids = [str(g.get('_id', '')) for g in games if g.get('_id')]
+    if hasattr(game_database.game_history_manager, "read_rounds_by_game_play_ids"):
+        rounds_by_game = game_database.game_history_manager.read_rounds_by_game_play_ids(game_ids)
+    else:
+        rounds_by_game = {gid: game_database.game_history_manager.read_rounds_by_game_play_id(gid) for gid in game_ids}
+
+    # Batch-preload any user IDs needed for legacy documents lacking embedded users_info
+    missing_uids = []
+    for g in games:
+        if not g.get('users_info'):
+            uids = g.get('user_ids') or [g.get(f'user{i}_id') for i in range(1, 5) if g.get(f'user{i}_id')]
+            for uid in uids:
+                uid_s = str(uid)
+                if uid_s and not uid_s.startswith("bot_") and uid_s not in user_cache:
+                    user_cache[uid_s] = None
+                    missing_uids.append(uid_s)
+    if missing_uids and hasattr(game_database.users_manager, "read_users"):
+        try:
+            for u_doc in game_database.users_manager.read_users(missing_uids):
+                if u_doc and "_id" in u_doc:
+                    user_cache[str(u_doc["_id"])] = u_doc
+        except Exception:
+            pass
+
     for g in games:
         g_id = str(g.get('_id', ''))
-        rounds = game_database.game_history_manager.read_rounds_by_game_play_id(g_id)
+        rounds = rounds_by_game.get(g_id, [])
         formatted_rounds = []
         for r in rounds:
             r_date = r.get('date')
@@ -260,16 +285,33 @@ def get_users_count(token):
         return game_database.users_manager.get_count_of_users()
 
 
-def get_free_coin(user_id, prev_coin, last_time_chance: datetime):
-    possible_time = last_time_chance + timedelta(hours=8)
-    if possible_time < datetime.now():
-        from Commons.static_functions import get_random_coin
-        from Entities.Database import game_database
-        coin = get_random_coin()
-        game_database.users_manager.update_user(user_id, coin=coin + prev_coin, last_time_chance=datetime.now())
-        return coin
-    else:
+def get_free_coin(user_id, prev_coin, last_time_chance: datetime | None):
+    now = datetime.now()
+    cutoff = now - timedelta(hours=8)
+    if isinstance(last_time_chance, datetime) and last_time_chance >= cutoff:
         raise Network_Exeptions.raise422(details="زمانش نرسیده")
+
+    from Commons.static_functions import get_random_coin
+    from Entities.Database import game_database
+    coin = get_random_coin()
+    col = getattr(game_database.users_manager, "collection", None)
+    if col is not None and hasattr(col, "find_one_and_update"):
+        updated = col.find_one_and_update(
+            {
+                "_id": user_id,
+                "$or": [
+                    {"last_time_chance": {"$lt": cutoff}},
+                    {"last_time_chance": {"$exists": False}},
+                    {"last_time_chance": None},
+                ],
+            },
+            {"$inc": {"coin": coin}, "$set": {"last_time_chance": now}},
+        )
+        if updated is None:
+            raise Network_Exeptions.raise422(details="زمانش نرسیده")
+    else:
+        game_database.users_manager.update_user(user_id, coin=coin + (prev_coin or 0), last_time_chance=now)
+    return coin
 
 
 def read_user_data(user_id):
@@ -286,60 +328,75 @@ def read_user_history_data(user_id):
     return data
 
 
-def get_new_bazaar_token():
+_PRODUCT_COIN_AMOUNTS = {
+    "1": 50,
+    "2": 160,
+    "3": 330,
+    "4": 525,
+    "5": 1100,
+    "6": 1700,
+}
+
+
+def get_new_bazaar_token() -> bool:
     global bazaar_access_token
     url = 'https://pardakht.cafebazaar.ir/devapi/v2/auth/token/'
     data = {'grant_type': "refresh_token", "client_id": "kaBZZL25bFEn8HhvdplDbARwIkg62TIokTv0koVu",
             "client_secret": "sucwTiAKMFcwbNlVIshe9zGtF1CYKZH3pz5n4kYoX4TIKAt0G7keypcEvYLV",
             "refresh_token": "RIBu8CaRQFjOeRdv1CHSaFEEGXwgP3"}
-    req = requests.post(url, json=data)
     try:
-        bazaar_access_token = req.json()['access_token']
-    except:
+        req = requests.post(url, json=data, timeout=8)
+        payload = req.json()
+        if isinstance(payload, dict) and payload.get('access_token'):
+            bazaar_access_token = payload['access_token']
+            return True
+    except Exception:
         pass
+    return False
 
 
-def purchase(user_id, product_id, market_type, token, prev_coin):
+def purchase(user_id, product_id, market_type, token, prev_coin, _retried: bool = False):
+    tok = str(token or "").strip()
+    if not tok:
+        return False
+    from Entities.Database import game_database
+    if hasattr(game_database.purchase_manager, "has_purchase_token") and game_database.purchase_manager.has_purchase_token(market_type, tok):
+        return False
+
+    is_token_true = False
     if market_type == "Myket":
         url = f'https://developer.myket.ir/api/partners/applications/kafeh.fekr.classic/purchases/products/{product_id}/verify'
-        data = {'tokenId': token}
+        data = {'tokenId': tok}
         header = {'X-Access-Token': "fb9aa38c-47f0-41d6-924b-ac712e553e5e"}
-        req = requests.post(url, json=data, headers=header)
         try:
-            payload = req.json()['developerPayload']
-            is_token_true = True
-        except:
+            req = requests.post(url, json=data, headers=header, timeout=8)
+            payload = req.json()
+            is_token_true = isinstance(payload, dict) and ('developerPayload' in payload)
+        except Exception:
             is_token_true = False
     else:
-        url = f'https://pardakht.cafebazaar.ir/devapi/v2/api/validate/kafeh.fekr.classic/inapp/{product_id}/purchases/{token}/?access_token={bazaar_access_token}'
-        req = requests.post(url)
-        {}.keys().__contains__("error")
+        url = f'https://pardakht.cafebazaar.ir/devapi/v2/api/validate/kafeh.fekr.classic/inapp/{product_id}/purchases/{tok}/?access_token={bazaar_access_token}'
         try:
+            req = requests.post(url, timeout=8)
+            if req.status_code == 401 and not _retried:
+                if get_new_bazaar_token():
+                    return purchase(user_id, product_id, market_type, tok, prev_coin, _retried=True)
+                return False
             payload = req.json()
-            if payload.keys().__contains__("error"):
-                is_token_true = False
-            else:
-                is_token_true = True
-        except:
-            get_new_bazaar_token()
-            return purchase(user_id, product_id, market_type, token, prev_coin)
+            is_token_true = isinstance(payload, dict) and ("error" not in payload)
+        except Exception:
+            if not _retried and get_new_bazaar_token():
+                return purchase(user_id, product_id, market_type, tok, prev_coin, _retried=True)
+            is_token_true = False
+
     if is_token_true:
-        from Entities.Database import game_database
-        if product_id == "1":
-            coin = 50 + prev_coin
-        elif product_id == "2":
-            coin = 160 + prev_coin
-        elif product_id == "3":
-            coin = 330 + prev_coin
-        elif product_id == "4":
-            coin = 525 + prev_coin
-        elif product_id == "5":
-            coin = 1100 + prev_coin
-        elif product_id == "6":
-            coin = 1700 + prev_coin
-        else:
-            coin = prev_coin
-        game_database.users_manager.update_user(user_id, coin=coin)
-        game_database.purchase_manager.create_purchase(user_id, product_id, market_type, token)
+        added_coins = _PRODUCT_COIN_AMOUNTS.get(str(product_id), 0)
+        if added_coins > 0:
+            col = getattr(game_database.users_manager, "collection", None)
+            if col is not None and hasattr(col, "find_one_and_update"):
+                col.find_one_and_update({"_id": user_id}, {"$inc": {"coin": added_coins}})
+            else:
+                game_database.users_manager.update_user(user_id, coin=added_coins + (prev_coin or 0))
+        game_database.purchase_manager.create_purchase(user_id, product_id, market_type, tok)
         return True
     return False

@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 
 import pymongo
 
@@ -17,6 +18,14 @@ def create_user_json(phone, name="", device_id="") -> dict:
 class UsersCollectionManager:
     def __init__(self, collection):
         self.collection = collection
+        self.ensure_indexes()
+
+    def ensure_indexes(self):
+        try:
+            self.collection.create_index([("phone", pymongo.ASCENDING)])
+            self.collection.create_index([("score", pymongo.DESCENDING)])
+        except Exception:
+            pass
 
     def is_phone_avaialble(self, phone_number: str):
         phone_str = str(phone_number).strip().replace(" ", "")
@@ -133,6 +142,8 @@ class UsersCollectionManager:
             update_data['is_active'] = is_active
         if created_clan_id is not None:
             update_data['created_clan_id'] = str(created_clan_id)
+        if not update_data:
+            return None
         self.collection.find_one_and_update(query, {'$set': update_data})
 
     def delete_user(self, user_id):
@@ -142,7 +153,7 @@ class UsersCollectionManager:
     def reset_all_users_active_games(self):
         query = {}
         update_data = {'open_game_id': ""}
-        self.collection.find_one_and_update(query, {'$set': update_data})
+        self.collection.update_many(query, {'$set': update_data})
 
     def get_count_of_users(self):
         return self.collection.count_documents({})
@@ -160,11 +171,12 @@ class UsersCollectionManager:
             return []
         excluded = set(str(x) for x in (exclude_ids or []))
         excluded.add("3goBRU")
+        escaped_q = re.escape(q_str)
         q = {
             "_id": {"$nin": list(excluded)},
             "$or": [
-                {"_id": {"$regex": q_str, "$options": "i"}},
-                {"username": {"$regex": q_str, "$options": "i"}},
+                {"_id": {"$regex": escaped_q, "$options": "i"}},
+                {"username": {"$regex": escaped_q, "$options": "i"}},
             ],
         }
         selection = {
