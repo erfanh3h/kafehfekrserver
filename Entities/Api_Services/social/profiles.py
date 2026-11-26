@@ -156,11 +156,25 @@ def get_public_profile(viewer_id: str, target_user_id: str) -> dict:
             if req:
                 relationship = "request_sent" if str(req.get("from_user_id")) == vid else "request_received"
 
+    head_to_head = None
+    if not is_self:
+        try:
+            from Entities.Database.social.rivals_collection import is_bot_user_id
+            if not is_bot_user_id(tid):
+                head_to_head = game_database.rivals_manager.get_head_to_head(
+                    vid,
+                    tid,
+                    history_col=game_database.game_play_history_manager.collection,
+                )
+        except Exception:
+            head_to_head = None
+
     base.update(
         {
             "join_date": serialize_dt(user_doc.get("join_date")),
             "friends_count": len(friend_ids),
             "relationship": relationship,
+            "head_to_head": head_to_head,
             "stats": stats,
             "history": hist_doc,
             "recent_matches": recent_matches,

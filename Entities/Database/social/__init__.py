@@ -13,6 +13,7 @@ from Entities.Database.social.notifications_collection import NotificationsColle
 from Entities.Database.social.invitations_collection import InvitationsCollectionManager
 from Entities.Database.social.reports_collection import ReportsCollectionManager
 from Entities.Database.social.presence_collection import PresenceCollectionManager
+from Entities.Database.social.rivals_collection import RivalsCollectionManager, is_bot_user_id
 
 __all__ = [
     "FriendsCollectionManager",
@@ -28,4 +29,6 @@ __all__ = [
     "InvitationsCollectionManager",
     "ReportsCollectionManager",
     "PresenceCollectionManager",
+    "RivalsCollectionManager",
+    "is_bot_user_id",
 ]

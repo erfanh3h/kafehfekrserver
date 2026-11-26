@@ -9,6 +9,7 @@ from Entities.Api_Services.social import (
     leaderboards,
     moderation,
     spectator,
+    rivalry,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "leaderboards",
     "moderation",
     "spectator",
+    "rivalry",
 ]

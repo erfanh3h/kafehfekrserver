@@ -10,6 +10,7 @@ from Entities.Api_Services.social import (
     moderation,
     clans,
     notifications,
+    rivalry,
 )
 
 router = APIRouter(prefix="/social", tags=["social"])
@@ -146,6 +147,15 @@ async def get_public_profile_endpoint(
     user=Depends(get_current_user),
 ):
     return {"result": profiles.get_public_profile(str(user["_id"]), target_user_id)}
+
+
+@router.get("/rivalry/{opponent_user_id}")
+async def get_rivalry_endpoint(
+    opponent_user_id: str,
+    authorization: str = Header(...),
+    user=Depends(get_current_user),
+):
+    return {"result": rivalry.get_rivalry_summary(str(user["_id"]), opponent_user_id)}
 
 
 @router.post("/profile/customize")
