@@ -54,14 +54,15 @@ kafehfekrserver/
 │   │       ├── realtime_bridge.py # HTTP webhook bridge to Socket.IO backend on port 5000
 │   │       ├── security.py     # Social input validation and rate limiting
 │   │       └── spectator.py    # Live games discovery, query filters, and privacy enforcement
-│   ├── Database/               # MongoDB collections and automated backup logic
+│   ├── Database/               # MongoDB collections, indexes, and automated backup logic
 │   │   ├── backup.py           # Hourly automated DB backup scheduler
-│   │   ├── config_collection.py# System configuration (versioning, queue toggles)
-│   │   ├── game_history_collection.py      # Individual round records
-│   │   ├── game_play_history_collection.py # Match series records
-│   │   ├── purchases_collection.py         # IAP transaction history
+│   │   ├── config_collection.py# System configuration (versioning, queue toggles, maintenance)
+│   │   ├── game_history_collection.py      # Individual round records (with batch lookup & indexes)
+│   │   ├── game_play_history_collection.py # Match series records & indexes
+│   │   ├── promo_collection.py             # Promo code definitions & atomic redemption ledger
+│   │   ├── purchases_collection.py         # IAP transaction history & token replay checks
 │   │   ├── users_collection.py             # User profile, wallet, session, privacy, profile_frame
-│   │   ├── user_history_collection.py      # Aggregated per-game user stats
+│   │   ├── user_history_collection.py      # Aggregated per-game user stats & indexes
 │   │   ├── __init__.py         # Database connection and collection initialization
 │   │   └── social/             # Social collections
 │   │       ├── clans_collection.py         # Clans, memberships, join requests, challenges
@@ -71,8 +72,10 @@ kafehfekrserver/
 │   │       ├── invitations_collection.py   # Match invitations
 │   │       ├── notifications_collection.py # System & player notification events
 │   │       ├── presence_collection.py      # Real-time presence records
-│   │       └── reports_collection.py       # Moderation tickets
-│   ├── Games/                  # Shared game types enum (25 games)
+│   │       ├── reports_collection.py       # Moderation tickets
+│   │       └── rivals_collection.py        # Head-to-head rivalry stats
+│   ├── Games/                  # Shared game types enum (25 games) & Classic Rank config
+│   │   ├── classic_rank_config.py
 │   │   └── game_types.py
 │   ├── Network_Exeptions/      # Standardized HTTP error responses (401, 403, 422)
 │   └── Security/               # Token creation, verification, and SMS OTP panel
@@ -114,9 +117,9 @@ kafehfekrserver/
 | `GET` | `/my-game-history` | JWT | `Authorization: <token>` | Returns the user's last 50 matches with round-by-round results and opponent details. |
 | `GET` | `/user-data/{user_id}` | None | `user_id` (Path) | Returns public profile data and aggregate history of a specific user. |
 | `POST` | `/update-image` | JWT | `image` (int, Form) | Updates the player's active avatar icon. |
-| `POST` | `/update-avatar-frame` | JWT | `frame_id` (int, Form / JSON) | Equips one of the 20 collectible avatar frames (`1..20`). |
+| `POST` | `/update-frame` | JWT | `frame` (int, Form) | Equips one of the 20 collectible avatar frames (`1..20`). |
 | `POST` | `/update-username` | JWT | `username` (Form) | Changes the player's display username. |
-| `POST` | `/check_match_allow` | JWT | `version` (Query) | Verifies whether the client version is permitted to queue into matches. |
+| `POST` | `/check_match_allow` | JWT | `version` (Form) | Verifies whether the client version is permitted to queue into matches. |
 
 ---
 
@@ -209,12 +212,15 @@ kafehfekrserver/
 
 | Method | Endpoint | Auth | Parameters | Description |
 |---|---|---|---|---|
-| `GET` | `/health` | None | None | Service health check (`{"status": "ok", "service": "server"}`). |
-| `GET` | `/config` | None | None | Returns version constraints (`allowed_version`, `latest_version`) and queue status (`is_queue_open`). |
+| `GET` | `/health` | None | None | Service health check (`{"status": "ok", "service": "server", "uptime_seconds": ...}`). |
+| `GET` | `/internal/admin/health-stats` | `X-Internal-Secret` | Header | Returns MongoDB ping latency, uptime, maintenance, and queue flags. |
+| `GET` | `/config` | None | None | Returns version constraints (`allowed_version`, `latest_version`), queue status, and `classic_rank_config`. |
+| `GET` | `/classic-rank/config` | None | None | Returns Classic Rank AI levels and difficulty reward table. |
 | `GET` | `/ranking-by-score` | None | None | Top 25 leaderboard ranked by competitive score (bots excluded). |
 | `GET` | `/ranking-by-win` | None | None | Top 25 leaderboard ranked by total ranked victories (bots excluded). |
-| `GET` | `/get-free-coin` | JWT | Header | Daily / 8-hour free coin reward chance (randomly awards 4, 8, 12, 16, or 20 coins). |
-| `POST` | `/purchase` | JWT | `product_id`, `market_type`, `token` (Form) | Validates CafeBazaar (with automatic OAuth refresh) or Myket purchase tokens and credits coins. |
+| `GET` | `/get-free-coin` | JWT | Header | Atomic 8-hour free coin reward chance (randomly awards 4, 8, 12, 16, or 20 coins). |
+| `POST` | `/purchase` | JWT | `product_id`, `market_type`, `token` (Form) | Validates CafeBazaar (bounded single OAuth refresh retry) or Myket purchase tokens with replay protection and atomic coin credit. |
+| `POST` | `/redeem-promo` | JWT | `code` (Form) | Atomically redeems an active promotional code. |
 
 **In-App Purchase Tier Mapping:**
 - Product `1`: +50 coins
@@ -270,6 +276,12 @@ To ensure seamless synchronization between REST actions and the realtime Socket.
 - **`presence`**: Real-time presence states (`online`, `in_game`, `spectating`, `offline`, `last_seen`).
 - **`reports`**: Player moderation tickets.
 
+### Security, Performance & Reliability Hardening
+- **MongoDB Indexes:** Core collections (`users`, `user_history`, `game_play_history`, `game_history`, `purchases`) initialize idempotent indexes at startup (`ensure_indexes()`).
+- **Batch History Loading:** `/my-game-history` batch-fetches all round records in a single query (`read_rounds_by_game_play_ids`) and preloads missing user profiles.
+- **Atomic Economy & Anti-Replay:** `/get-free-coin` uses conditional atomic `$inc`/`$set` updates; `/purchase` rejects previously redeemed `(market_type, token)` pairs and enforces HTTP timeouts with bounded token refresh.
+- **Input & OTP Protection:** `SMSPanel` invalidates pending OTPs after 5 failed verification attempts, user search escapes regex metacharacters (`re.escape`), and `reset_all_users_active_games` uses `update_many`.
+
 ### Automated Backup System (`Entities/Database/backup.py`)
 - Background daemon triggers automated backups every 60 minutes.
 - Dumps database to the path configured by `BACKUP_DIR` (default `/app/Backups/`).
@@ -285,10 +297,17 @@ To ensure seamless synchronization between REST actions and the realtime Socket.
 | `HOST` | `0.0.0.0` | Host interface binding |
 | `MONGO_URI` | `mongodb://localhost:27017/` | Connection string to MongoDB |
 | `BACKUP_DIR` | `/app/Backups/` | Storage destination directory for MongoDB backups |
+| `SECRET_KEY` | dev fallback key | Shared HS256 JWT secret and `X-Internal-Secret` |
+| `BACKEND_INTERNAL_URL` | `http://127.0.0.1:5000` | Base URL for `RealtimeBridge` internal calls to `kafehfekrbackend` |
 
 ---
 
-## 7. Running the Server
+## 7. Running & Testing the Server
+
+### Running Unit Tests
+```bash
+python -m unittest tests_classic_rank_config tests_backend_optimizations -v
+```
 
 ### Running with Docker Compose (Recommended)
 From the project root:
